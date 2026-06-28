@@ -1,0 +1,128 @@
+.calc-card {
+  background: linear-gradient(145deg, #0f172a, #1e293b);
+  border: 1px solid #334155;
+  border-radius: 20px;
+  padding: 24px;
+}
+
+.calc-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 4px;
+}
+
+.calc-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 24px;
+  line-height: 1.4;
+}
+
+.calc-slider-group {
+  margin-bottom: 20px;
+}
+
+.slider-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.slider-value {
+  color: #4ade80;
+  font-weight: 700;
+}
+
+.calc-slider {
+  width: 100%;
+  height: 6px;
+  background: #0f172a;
+  border-radius: 3px;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.calc-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4ade80;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.4);
+  transition: transform 0.1s;
+}
+
+.calc-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.slider-range {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.calc-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #0a0e1a;
+  border: 1px solid #1e293b;
+  padding: 16px;
+  border-radius: 12px;
+  margin-top: 24px;
+}
+
+.calc-result-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.calc-result-label {
+  color: #64748b;
+}
+
+.calc-result-value {
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.calc-result-value.accent {
+  color: #4ade80;
+}
+
+.calc-affordability {
+  margin-top: 16px;
+}
+
+.affordability-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(74, 222, 128, 0.05);
+  border: 1px solid rgba(74, 222, 128, 0.15);
+  border-radius: 8px;
+}
+
+.affordability-indicator .dot.safe {
+  width: 8px;
+  height: 8px;
+  background-color: #4ade80;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #4ade80;
+}
+
+.aff-text {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}

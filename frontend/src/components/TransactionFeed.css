@@ -1,0 +1,91 @@
+.feed-card {
+  background: linear-gradient(145deg, #0f172a, #1e293b);
+  border: 1px solid #334155;
+  border-radius: 20px;
+  padding: 24px;
+}
+.feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.feed-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+.feed-count {
+  font-size: 11px;
+  color: #64748b;
+  background: #0f172a;
+  border: 1px solid #334155;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+.feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.feed-list::-webkit-scrollbar { width: 4px; }
+.feed-list::-webkit-scrollbar-track { background: transparent; }
+.feed-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+.feed-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 12px;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.feed-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.feed-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.feed-details {
+  flex: 1;
+  min-width: 0;
+}
+.feed-desc {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.feed-meta {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.feed-dot { color: #334155; }
+.feed-amount {
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.feed-amount.income { color: #4ade80; }
+.feed-amount.expense { color: #f87171; }
+.feed-empty {
+  text-align: center;
+  padding: 40px;
+  color: #64748b;
+  font-size: 14px;
+}
