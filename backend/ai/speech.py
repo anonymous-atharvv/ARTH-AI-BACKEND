@@ -58,7 +58,7 @@ async def voice_to_transaction(media_url: str, language: str = "hi") -> Extracte
         return ExtractedTransaction(
             amount=250.0,
             type=TransactionType.expense,
-            category_code="fuel_transport" if language == "hi" else "transport_fuel",
+            category_code="transport_fuel",
             counterparty="Auto Fuel",
             description="Aaj ₹250 ka auto fuel bharwaya (Mock)",
             payment_method=PaymentMethod.cash,
