@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
 import ArthScoreGauge from '../components/ArthScoreGauge';
 import PLChart from '../components/PLChart';
@@ -17,6 +17,7 @@ export default function Dashboard() {
   const { userId } = useParams<{ userId: string }>();
   const uid = userId || DEMO_USER_ID;
   const { t } = useLanguage();
+  const navigate = useNavigate();
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [score, setScore] = useState<ArthScore | null>(null);
@@ -65,7 +66,7 @@ export default function Dashboard() {
           <Link to="/" style={{ textDecoration: 'none' }}>
             <h1 className="brand-name">Arth<span className="brand-accent">AI</span></h1>
           </Link>
-          <p className="brand-tagline">{t('Financial Intelligence', 'वित्तीय बुद्धिमत्ता')}</p>
+          <p className="brand-tagline">{t('Financial Intelligence', 'वित्तीय पासपोर्ट')}</p>
         </div>
         <div className="dash-header-right">
           <LanguageToggle />
@@ -79,6 +80,18 @@ export default function Dashboard() {
             <span className="user-avatar">👤</span>
             <span className="user-name">{t('Raju Kumar', 'राजू कुमार')}</span>
           </div>
+          <button 
+            onClick={() => navigate('/demo')} 
+            className="nav-btn-link logout-btn" 
+            style={{ 
+              background: '#dc262620', 
+              color: '#f87171', 
+              borderColor: '#dc262640',
+              cursor: 'pointer' 
+            }}
+          >
+            🚪 {t('Exit', 'निकास')}
+          </button>
         </div>
       </header>
 

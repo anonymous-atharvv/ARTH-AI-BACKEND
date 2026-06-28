@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import apiClient from '../api/client';
 import LanguageToggle from '../components/LanguageToggle';
@@ -11,6 +11,7 @@ export default function Passport() {
   const { userId } = useParams<{ userId: string }>();
   const uid = userId || DEMO_USER_ID;
   const { t } = useLanguage();
+  const navigate = useNavigate();
 
   const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle');
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
@@ -50,6 +51,18 @@ export default function Passport() {
           <Link to={`/dashboard/${uid}`} className="nav-btn-link">
             {t('Dashboard', 'डैशबोर्ड')}
           </Link>
+          <button 
+            onClick={() => navigate('/demo')} 
+            className="nav-btn-link logout-btn" 
+            style={{ 
+              background: '#dc262620', 
+              color: '#f87171', 
+              borderColor: '#dc262640',
+              cursor: 'pointer' 
+            }}
+          >
+            🚪 {t('Exit', 'निकास')}
+          </button>
         </div>
       </header>
 

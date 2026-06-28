@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
 import LanguageToggle from '../components/LanguageToggle';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -14,6 +14,7 @@ export default function Transactions() {
   const { userId } = useParams<{ userId: string }>();
   const uid = userId || DEMO_USER_ID;
   const { t } = useLanguage();
+  const navigate = useNavigate();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +67,18 @@ export default function Transactions() {
           <Link to={`/dashboard/${uid}`} className="nav-btn-link">
             {t('Dashboard', 'डैशबोर्ड')}
           </Link>
+          <button 
+            onClick={() => navigate('/demo')} 
+            className="nav-btn-link logout-btn" 
+            style={{ 
+              background: '#dc262620', 
+              color: '#f87171', 
+              borderColor: '#dc262640',
+              cursor: 'pointer' 
+            }}
+          >
+            🚪 {t('Exit', 'निकास')}
+          </button>
         </div>
       </header>
 
