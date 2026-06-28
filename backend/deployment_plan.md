@@ -1,5 +1,5 @@
 # ArthAI Cloud Deployment Guide 🚀
-### Deploying Frontend to Cloudflare, Database to Neon Tech, and Storage/Auth to Supabase
+### Deploying Frontend to Cloudflare, Database to Neon Tech, and Backend to Hugging Face Spaces
 
 This document outlines the step-by-step deployable architecture for the ArthAI production stack.
 
@@ -9,12 +9,12 @@ This document outlines the step-by-step deployable architecture for the ArthAI p
 
 ```
 ┌────────────────────────┐
-│     React Frontend     │  (Cloudflare Pages CDN)
+│     React Frontend     │  (Cloudflare Pages CDN / Cloudflared)
 └────────────────────────┘
             │
             ▼  (Encrypted HTTPS)
 ┌────────────────────────┐
-│    FastAPI Backend     │  (Supabase Edge Functions / VPS / PaaS)
+│    FastAPI Backend     │  (Hugging Face Spaces - Docker Template)
 └────────────────────────┘
       │            │
       │            ▼
@@ -51,28 +51,38 @@ Neon provides serverless PostgreSQL with scale-to-zero capabilities and transact
 
 ---
 
-## ⚡ 2. Media Storage & Auth: Supabase
+## 🤗 2. Backend Deployment: Hugging Face Spaces (Docker Space)
 
-Supabase is used for object storage (receipt images, audio recordings, statement PDFs) and optional app authentication.
+Hugging Face Spaces can run full FastAPI applications inside custom Docker containers.
 
-### Storage Setup Instructions
-1. **Create Project**: Sign up at [supabase.com](https://supabase.com/) and spin up a new project named `arthai`.
-2. **Create Public Bucket**:
-   - Go to **Storage** -> **Create New Bucket**.
-   - Name it `arthai-media`.
-   - Toggle **Public** to `ON` so that Twilio's WhatsApp API and the React client can download images and PDFs using static public URLs.
-3. **Configure S3-Compatible Keys** (Used by `backend/services/storage.py`):
-   - Navigate to **Project Settings** -> **Storage**.
-   - Copy the **S3 Connection URL**: `https://[project-ref].supabase.co/storage/v1/s3`.
-   - Go to your Supabase Access Tokens and generate S3 access keys (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`).
-   - Configure these in your backend `.env` variables:
-     ```env
-     AWS_ACCESS_KEY_ID="your-supabase-s3-access-key"
-     AWS_SECRET_ACCESS_KEY="your-supabase-s3-secret-key"
-     AWS_BUCKET_NAME="arthai-media"
-     AWS_S3_ENDPOINT_URL="https://[project-ref].supabase.co/storage/v1/s3"
-     ENABLE_S3_STORAGE=true
+### Setup Instructions
+1. **Create Space**:
+   - Go to [huggingface.co/spaces](https://huggingface.co/spaces) and click **Create new Space**.
+   - Set **Owner** and **Space Name** (e.g., `arthai-backend`).
+   - Select **Docker** as the SDK/Template.
+   - Select **Blank** as the Docker template.
+   - Set **Space License** to Apache-2.0 (or keep private if needed).
+2. **Configure Space Secrets**:
+   - In your Hugging Face Space, go to **Settings** -> **Variables and secrets** -> **New secret**.
+   - Add all environment variables from `backend/.env.example` as Space secrets:
+     - `DATABASE_URL` (your Neon connection string)
+     - `OPENAI_API_KEY`
+     - `SARVAM_API_KEY`
+     - `TWILIO_ACCOUNT_SID`
+     - `TWILIO_AUTH_TOKEN`
+     - `TWILIO_WHATSAPP_FROM`
+     - `SECRET_KEY` (a 32-character secret string)
+3. **Push Code to Hugging Face**:
+   - Clone your Hugging Face space repository locally or push your `backend/` directory to it:
+     ```bash
+     git remote add hf https://huggingface.co/spaces/[your-username]/[space-name]
+     git push hf main
      ```
+   - Hugging Face will automatically detect the `backend/Dockerfile`, compile the image (including all dependencies for PDF compilation), expose port `7860`, and run the app.
+4. **Twilio Webhook Routing**:
+   - Go to your Twilio WhatsApp sender dashboard.
+   - Set your inbound webhook URL to the Hugging Face Space direct API URL:
+     `https://[username]-[space-name].hf.space/whatsapp`
 
 ---
 
@@ -92,15 +102,15 @@ The React single-page application is hosted globally on Cloudflare's edge networ
 4. **Environment Configuration**:
    - Under project settings -> **Environment variables**, define:
      ```env
-     VITE_API_URL="https://your-backend-api-domain.com"
+     VITE_API_URL="https://[username]-[space-name].hf.space"
      ```
 5. **Deploy**: Click **Save and Deploy**. Cloudflare compiles the assets and assigns a production URL (e.g. `arthai.pages.dev`).
 
 ---
 
-## 📡 4. Webhook Security & Exposing Backend: Cloudflare Tunnel
+## 📡 4. Exposing Local Dev to Webhooks: Cloudflare Tunnel
 
-Since Twilio communicates via standard webhooks, the backend must be publicly accessible on HTTPS. We secure the ingress without exposing ports directly using **Cloudflare Tunnel** (`cloudflared`).
+To test webhooks locally during development, use **Cloudflare Tunnel** (`cloudflared`) to expose port `8000`.
 
 ### Setup Instructions
 1. **Install Cloudflared**:
@@ -132,6 +142,3 @@ Since Twilio communicates via standard webhooks, the backend must be publicly ac
    ```bash
    cloudflared tunnel run arthai-tunnel
    ```
-6. **Twilio Webhook Configuration**:
-   - Point the Twilio WhatsApp Incoming Webhook url to:
-     `https://api.yourdomain.com/api/webhook/whatsapp`
