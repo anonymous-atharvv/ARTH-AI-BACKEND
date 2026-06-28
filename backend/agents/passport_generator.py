@@ -70,7 +70,7 @@ class PassportGenerator:
             html = f"<h1>ArthAI Financial Passport</h1><p>Score: {data['score']}/900</p>"
 
         # Save as HTML file (PDF requires weasyprint system deps)
-        output_dir = Path(__file__).parent.parent.parent / "demo-data"
+        output_dir = Path(__file__).parent.parent / "static"
         output_dir.mkdir(exist_ok=True)
         output_file = output_dir / f"passport_{user_id[:8]}.html"
         output_file.write_text(html)

@@ -3,6 +3,7 @@
 SQLAlchemy async engine and session factory.
 Supports PostgreSQL (production) and SQLite (demo/dev).
 """
+# pyrefly: ignore [missing-import]
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 import structlog

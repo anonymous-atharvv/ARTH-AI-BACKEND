@@ -21,7 +21,7 @@ async def seed_demo_data(db: AsyncSession = Depends(get_db)):
     Seeds Raju's 90-day synthetic transaction dataset.
     Call this ONCE to set up the demo.
     """
-    demo_data_path = Path(__file__).parent.parent.parent / "demo-data" / "raju_90days.json"
+    demo_data_path = Path(__file__).parent.parent / "demo-data" / "raju_90days.json"
 
     if not demo_data_path.exists():
         return {"error": "Demo data file not found", "path": str(demo_data_path)}
