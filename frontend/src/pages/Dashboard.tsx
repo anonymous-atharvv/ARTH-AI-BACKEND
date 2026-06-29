@@ -172,6 +172,62 @@ export default function Dashboard() {
             ))}
           </div>
           {pnl && <PLChart data={pnl.series} period={pnlPeriod} />}
+          {forecast && forecast.available && (
+            <div className="forecast-card" style={{
+              marginTop: '20px',
+              padding: '20px',
+              background: 'rgba(30, 41, 59, 0.5)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '16px',
+              backdropFilter: 'blur(12px)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🔮 {t('30-Day Cash Flow Forecast', '30-दिवसीय नकदी प्रवाह पूर्वानुमान')}
+                </h3>
+                <span style={{
+                  fontSize: '0.75rem',
+                  padding: '2px 8px',
+                  background: 'rgba(74, 222, 128, 0.1)',
+                  color: '#4ade80',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(74, 222, 128, 0.2)'
+                }}>
+                  {forecast.confidence === 'high' ? t('High Confidence', 'उच्च आत्मविश्वास') :
+                   forecast.confidence === 'medium' ? t('Medium Confidence', 'मध्यम आत्मविश्वास') :
+                   t('Low Confidence', 'कम आत्मविश्वास')}
+                </span>
+              </div>
+              <p style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#94a3b8', lineHeight: '1.5' }}>
+                {t(
+                  'Based on your transaction seasonality, we project your next month net cash flow to be: ',
+                  'आपके लेनदेन की मौसमीता के आधार पर, हम अगले महीने आपके शुद्ध नकदी प्रवाह का अनुमान लगाते हैं: '
+                )}
+                <strong style={{ color: '#4ade80', fontSize: '1.1rem' }}>
+                  ₹{forecast.projected_monthly_net.toLocaleString('en-IN')}
+                </strong>
+              </p>
+              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '8px' }}>
+                {forecast.forecast.slice(0, 7).map((day: any, idx: number) => (
+                  <div key={idx} style={{
+                    minWidth: '90px',
+                    padding: '10px',
+                    background: 'rgba(15, 23, 42, 0.4)',
+                    borderRadius: '8px',
+                    textAlign: 'center',
+                    border: '1px solid rgba(255, 255, 255, 0.04)'
+                  }}>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px' }}>
+                      {day.label}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: day.forecast_net >= 0 ? '#4ade80' : '#f87171' }}>
+                      {day.forecast_net >= 0 ? '+' : ''}₹{day.forecast_net}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="dash-right">
           {score && (
