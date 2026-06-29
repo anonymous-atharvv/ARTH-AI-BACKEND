@@ -17,7 +17,7 @@ export default function ProtectedRoute({ children }: Props) {
   // Tenant Isolation check:
   // If a specific userId is requested in the route parameters, it must match the authenticated userId.
   if (userId && userId !== authUserId) {
-    console.warn(`Access denied. Route user ID (${userId}) does not match authenticated user ID (${authUserId}).`);
+    console.warn("Access denied. Route user ID mismatch.");
     return <Navigate to="/demo" replace />;
   }
 

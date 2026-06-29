@@ -43,8 +43,26 @@ async def _fetch_and_import_async(consent_handle: str, user_id: str):
         return
 
     async with AsyncSessionLocal() as db:
+        from sqlalchemy import select, and_
         imported_count = 0
         for tx_data in transactions_data:
+            tx_date = datetime.fromisoformat(tx_data["transaction_date"]).date()
+            
+            # Check for duplicate
+            stmt = select(Transaction).where(
+                and_(
+                    Transaction.user_id == user_id,
+                    Transaction.amount == tx_data["amount"],
+                    Transaction.type == tx_data["type"],
+                    Transaction.transaction_date == tx_date.isoformat(),
+                    Transaction.description == tx_data["description"],
+                    Transaction.source == "account_aggregator"
+                )
+            )
+            res = await db.execute(stmt)
+            if res.scalars().first():
+                continue
+
             tx = Transaction(
                 user_id=user_id,
                 amount=tx_data["amount"],
@@ -53,7 +71,7 @@ async def _fetch_and_import_async(consent_handle: str, user_id: str):
                 counterparty=tx_data["counterparty"],
                 description=tx_data["description"],
                 payment_method=tx_data["payment_method"],
-                transaction_date=datetime.fromisoformat(tx_data["transaction_date"]).date(),
+                transaction_date=tx_date,
                 source="account_aggregator",
                 raw_input=tx_data["raw_input"],
                 confidence_score=tx_data["confidence_score"],
@@ -62,8 +80,11 @@ async def _fetch_and_import_async(consent_handle: str, user_id: str):
             db.add(tx)
             imported_count += 1
         
-        await db.commit()
-        logger.info("Successfully imported transactions from AA", user_id=user_id, count=imported_count)
+        if imported_count > 0:
+            await db.commit()
+            logger.info("Successfully imported transactions from AA", user_id=user_id, count=imported_count)
+        else:
+            logger.info("All AA transactions were already imported", user_id=user_id)
 
         # Refresh analytics cache
         analytics = AnalyticsService(db)

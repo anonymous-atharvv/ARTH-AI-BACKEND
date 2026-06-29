@@ -66,6 +66,7 @@ export const apiClient = {
   sendOtp: (phone: string) => api.post('/auth/send-otp', { phone }),
   verifyOtp: (phone: string, otp: string) => api.post('/auth/verify-otp', { phone, otp }),
   getDemoToken: () => api.post('/auth/demo-token'),
+  logout: () => api.post('/auth/logout'),
 
   // Dashboard
   getSummary: (userId: string) => api.get(`/analytics/summary/${userId}`),

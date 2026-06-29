@@ -20,15 +20,6 @@ export default function Dashboard() {
   const { userId } = useParams<{ userId: string }>();
   const authUserId = localStorage.getItem('arthai_user_id');
   const token = localStorage.getItem('arthai_token');
-
-  if (!token) {
-    return <Navigate to="/demo" replace />;
-  }
-
-  const uid = userId || authUserId || DEMO_USER_ID;
-  if (uid !== authUserId) {
-    return <Navigate to="/demo" replace />;
-  }
   const { t } = useLanguage();
   const navigate = useNavigate();
 
@@ -42,21 +33,25 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [pnlPeriod, setPnlPeriod] = useState('90d');
 
+  const uid = userId || authUserId || DEMO_USER_ID;
+
   useEffect(() => {
-    loadAll();
-  }, [uid, pnlPeriod]);
+    if (token && uid === authUserId) {
+      loadAll();
+    }
+  }, [uid, pnlPeriod, token, authUserId]);
 
   const loadAll = async () => {
     setLoading(true);
     try {
       const [sumRes, scoreRes, pnlRes, txRes, historyRes, benchRes, forecastRes] = await Promise.all([
-        apiClient.getSummary(uid),
-        apiClient.getArthScore(uid),
-        apiClient.getPnl(uid, pnlPeriod),
-        apiClient.getTransactions(uid, 1, 50),
-        apiClient.getArthScoreHistory(uid),
-        apiClient.getPeerBenchmarks(uid),
-        apiClient.getCashFlowForecast(uid),
+        apiClient.getSummary(uid).catch(err => { console.warn("Failed to load summary", err); return { data: null }; }),
+        apiClient.getArthScore(uid).catch(err => { console.warn("Failed to load score", err); return { data: null }; }),
+        apiClient.getPnl(uid, pnlPeriod).catch(err => { console.warn("Failed to load P&L", err); return { data: null }; }),
+        apiClient.getTransactions(uid, 1, 50).catch(err => { console.warn("Failed to load transactions", err); return { data: { items: [] } }; }),
+        apiClient.getArthScoreHistory(uid).catch(err => { console.warn("Failed to load history", err); return { data: { history: [] } }; }),
+        apiClient.getPeerBenchmarks(uid).catch(err => { console.warn("Failed to load benchmarks", err); return { data: null }; }),
+        apiClient.getCashFlowForecast(uid).catch(err => { console.warn("Failed to load forecast", err); return { data: null }; }),
       ]);
       setSummary(sumRes.data);
       setScore(scoreRes.data);
@@ -71,6 +66,15 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
+  // Auth gate redirects (always below React hooks)
+  if (!token) {
+    return <Navigate to="/demo" replace />;
+  }
+
+  if (uid !== authUserId) {
+    return <Navigate to="/demo" replace />;
+  }
 
 
   if (loading) {
@@ -240,7 +244,7 @@ export default function Dashboard() {
                 dataPoints={score.data_points}
               />
               <div style={{ marginTop: '20px' }}>
-                <LoanImpactCalculator maxLoan={score.max_loan_eligible} score={score.score} actualSurplus={summary?.mtd_net_profit || 0} />
+                <LoanImpactCalculator maxLoan={score.max_loan_eligible} score={score.score} actualSurplus={Math.max(0, summary?.mtd_net_profit ?? 0)} />
               </div>
               {history && history.length > 0 && (
                 <div style={{ marginTop: '20px' }}>

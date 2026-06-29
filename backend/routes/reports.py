@@ -22,11 +22,8 @@ async def generate_financial_passport(
     Generates a bank-grade Financial Passport PDF.
     Returns download URL + ArthScore + loan eligibility.
     """
-    if settings.ENVIRONMENT == "production":
-        if current_user_id != user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-    elif user_id != current_user_id and not settings.DEMO_MODE:
-        raise HTTPException(status_code=403, detail="Forbidden")
+    if current_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     from agents.passport_generator import PassportGenerator
 
@@ -55,11 +52,8 @@ async def generate_gst_invoice(
     """
     Generates a GST-compliant tax invoice for a transaction.
     """
-    if settings.ENVIRONMENT == "production":
-        if current_user_id != user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-    elif user_id != current_user_id and not settings.DEMO_MODE:
-        raise HTTPException(status_code=403, detail="Forbidden")
+    if current_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     from agents.gst_invoice_generator import GSTInvoiceGenerator
     generator = GSTInvoiceGenerator(db)
@@ -88,11 +82,8 @@ async def get_gstr1_report(
     """
     Generates a GSTR-1 compliant monthly sales tax summary.
     """
-    if settings.ENVIRONMENT == "production":
-        if current_user_id != user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-    elif user_id != current_user_id and not settings.DEMO_MODE:
-        raise HTTPException(status_code=403, detail="Forbidden")
+    if current_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     from services.gst_compliance import generate_gstr1_data
     result = await generate_gstr1_data(db, user_id, year, month)

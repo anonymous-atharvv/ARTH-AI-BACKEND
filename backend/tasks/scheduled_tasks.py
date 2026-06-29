@@ -36,7 +36,7 @@ def nightly_cache_warming():
 
 async def _send_weekly_summary_async():
     async with AsyncSessionLocal() as db:
-        res = await db.execute(select(User.id, User.preferred_language, User.phone_number, User.name).where(User.onboarding_complete == True))
+        res = await db.execute(select(User.id, User.preferred_language, User.phone_number, User.name).where(User.onboarding_complete))
         users = res.all()
     
     wa = WhatsAppService()
@@ -77,7 +77,7 @@ async def _send_weekly_summary_async():
                 )
             
             await wa.send_message(phone_number, msg)
-            logger.info("Sent weekly summary", user_id=user_id, phone=phone_number)
+            logger.info("Sent weekly summary", user_id=user_id)
         except Exception as e:
             logger.error("Failed to send weekly summary", user_id=user_id, error=str(e))
 

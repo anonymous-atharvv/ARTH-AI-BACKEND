@@ -14,15 +14,6 @@ export default function Transactions() {
   const { userId } = useParams<{ userId: string }>();
   const authUserId = localStorage.getItem('arthai_user_id');
   const token = localStorage.getItem('arthai_token');
-
-  if (!token) {
-    return <Navigate to="/demo" replace />;
-  }
-
-  const uid = userId || authUserId || DEMO_USER_ID;
-  if (uid !== authUserId) {
-    return <Navigate to="/demo" replace />;
-  }
   const { t } = useLanguage();
   const navigate = useNavigate();
 
@@ -32,9 +23,21 @@ export default function Transactions() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
+  const uid = userId || authUserId || DEMO_USER_ID;
+
   useEffect(() => {
-    loadTransactions();
-  }, [uid]);
+    if (token && uid === authUserId) {
+      loadTransactions();
+    }
+  }, [uid, token, authUserId]);
+
+  if (!token) {
+    return <Navigate to="/demo" replace />;
+  }
+
+  if (uid !== authUserId) {
+    return <Navigate to="/demo" replace />;
+  }
 
   const loadTransactions = async () => {
     setLoading(true);

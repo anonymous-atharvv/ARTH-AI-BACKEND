@@ -11,7 +11,7 @@ interface BenchmarkData {
 }
 
 export default function BenchmarkCard({ data }: { data: BenchmarkData }) {
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
 
   if (!data || !data.available) return null;
 
@@ -29,7 +29,10 @@ export default function BenchmarkCard({ data }: { data: BenchmarkData }) {
         <span style={{ fontSize: '28px' }}>{isAbove ? '🏆' : '📊'}</span>
         <div>
           <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            VS {data.peer_count} SIMILAR BUSINESSES ({data.business_type})
+            {t(
+              `VS ${data.peer_count} SIMILAR BUSINESSES (${data.business_type})`,
+              `${data.peer_count} समान व्यवसायों के मुकाबले (${data.business_type})`
+            )}
           </div>
           <div style={{ fontSize: '22px', fontWeight: 800, color }}>
             {isAbove ? '+' : ''}{pct.toFixed(0)}%

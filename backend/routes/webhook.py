@@ -36,6 +36,7 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             "media_url": params.get("MediaUrl0"),
             "media_type": params.get("MediaContentType0"),
             "num_media": int(params.get("NumMedia", 0) or 0),
+            "message_sid": params.get("SmsMessageSid") or params.get("MessageSid"),
         }
         
         logger.info("WhatsApp message received",

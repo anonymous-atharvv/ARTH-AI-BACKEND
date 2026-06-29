@@ -53,7 +53,7 @@ class PassportGenerator:
             "download_url": download_url,
             "arthascore": score_data.get("score", 0),
             "loan_eligible": score_data.get("max_loan_eligible", 0),
-            "expires_at": (date.today() + timedelta(days=30)).isoformat(),
+            "expires_at": (date.today() + timedelta(days=7)).isoformat(),
             "doc_id": doc_id,
             "format": file_ext,
         }
@@ -77,7 +77,7 @@ class PassportGenerator:
         return {
             "doc_id": doc_id,
             "generated_date": date.today().strftime("%d %B %Y"),
-            "expiry_date": (date.today() + timedelta(days=30)).strftime("%d %B %Y"),
+            "expiry_date": (date.today() + timedelta(days=7)).strftime("%d %B %Y"),
             "score": score_data.get("score", 0),
             "grade": score_data.get("grade", "N/A"),
             "grade_hi": score_data.get("grade_hi", "N/A"),
@@ -112,7 +112,7 @@ class PassportGenerator:
             period_end=date.today().isoformat(),
             arthascore_at_generation=score_data.get("score", 0),
             summary_data={"score": score_data.get("score"), "loan_eligible": score_data.get("max_loan_eligible")},
-            expires_at=(date.today() + timedelta(days=30)).isoformat(),
+            expires_at=(date.today() + timedelta(days=7)).isoformat(),
         )
         self.db.add(doc)
         await self.db.commit()

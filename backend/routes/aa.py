@@ -31,6 +31,16 @@ async def initiate_aa_consent(
 
     service = AccountAggregatorService()
     consent_data = await service.initiate_consent(user_id, user.phone_number)
+    
+    consent_handle = consent_data.get("consent_handle")
+    if consent_handle:
+        from cache import get_redis
+        try:
+            redis = await get_redis()
+            await redis.set(f"aa_consent:{consent_handle}", user_id, ex=86400)
+        except Exception as redis_err:
+            logger.error("Failed to store consent handle in Redis", error=str(redis_err))
+
     return consent_data
 
 
@@ -44,11 +54,22 @@ async def aa_consent_callback(request: Request, db: AsyncSession = Depends(get_d
         
     consent_handle = data.get("ConsentHandle") or data.get("consent_handle")
     status = data.get("status", "ACTIVE")  # "ACTIVE" or "REJECTED"
-    user_id = data.get("user_id")
 
-    logger.info("Received AA consent callback", consent_handle=consent_handle, status=status, user_id=user_id)
+    logger.info("Received AA consent callback", consent_handle=consent_handle, status=status)
 
-    if status == "ACTIVE" and consent_handle and user_id:
+    if status == "ACTIVE" and consent_handle:
+        from cache import get_redis
+        try:
+            redis = await get_redis()
+            user_id = await redis.get(f"aa_consent:{consent_handle}")
+        except Exception as redis_err:
+            logger.error("Failed to retrieve consent handle from Redis", error=str(redis_err))
+            user_id = None
+
+        if not user_id:
+            logger.warning("Consent handle not found or expired in Redis", consent_handle=consent_handle)
+            raise HTTPException(status_code=404, detail="Consent request not found or expired")
+
         # Trigger background task to fetch and import transactions
         from tasks.aa_tasks import fetch_and_import_aa_data
         fetch_and_import_aa_data.delay(consent_handle, user_id)

@@ -34,9 +34,9 @@ export default function LoanImpactCalculator({ maxLoan, score, actualSurplus }: 
   const totalPayment = emi * tenureMonths;
   const totalInterest = totalPayment - loanAmount;
 
-  const surplus = actualSurplus > 0 ? actualSurplus : 15000;
-  const surplusPct = Math.round((emi / surplus) * 100);
-  const isSafe = surplusPct <= 35;
+  const surplus = actualSurplus;
+  const surplusPct = surplus > 0 ? Math.round((emi / surplus) * 100) : 100;
+  const isSafe = surplus > 0 && surplusPct <= 35;
 
   return (
     <div className="calc-card">

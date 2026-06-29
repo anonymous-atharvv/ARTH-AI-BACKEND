@@ -14,14 +14,15 @@ interface Props {
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
+  const { t } = useLanguage();
   if (!active || !payload || !payload.length) return null;
   const data = payload[0].payload;
   return (
     <div className="trajectory-tooltip">
       <p className="tooltip-date">{label}</p>
-      <p className="tooltip-score">Score: <span>{data.score}</span></p>
-      <p className="tooltip-grade">Grade: {data.grade}</p>
-      <p className="tooltip-datapoints">Data Points: {data.data_points}</p>
+      <p className="tooltip-score">{t('Score', 'स्कोर')}: <span>{data.score}</span></p>
+      <p className="tooltip-grade">{t('Grade', 'श्रेणी')}: {t(data.grade, data.grade)}</p>
+      <p className="tooltip-datapoints">{t('Data Points', 'डेटा अंक')}: {data.data_points}</p>
     </div>
   );
 };

@@ -11,15 +11,6 @@ export default function Passport() {
   const { userId } = useParams<{ userId: string }>();
   const authUserId = localStorage.getItem('arthai_user_id');
   const token = localStorage.getItem('arthai_token');
-
-  if (!token) {
-    return <Navigate to="/demo" replace />;
-  }
-
-  const uid = userId || authUserId || DEMO_USER_ID;
-  if (uid !== authUserId) {
-    return <Navigate to="/demo" replace />;
-  }
   const { t } = useLanguage();
   const navigate = useNavigate();
 
@@ -30,6 +21,15 @@ export default function Passport() {
     loan_eligible: number;
     expires_at: string;
   } | null>(null);
+
+  if (!token) {
+    return <Navigate to="/demo" replace />;
+  }
+
+  const uid = userId || authUserId || DEMO_USER_ID;
+  if (uid !== authUserId) {
+    return <Navigate to="/demo" replace />;
+  }
 
   const handleGenerate = async () => {
     setStatus('generating');

@@ -21,7 +21,8 @@ class WhatsAppService:
         if not to_phone.startswith("whatsapp:"):
             to_phone = f"whatsapp:{to_phone}"
         
-        logger.info("Sending WhatsApp message", provider=self.provider, to=to_phone, body=body[:100])
+        masked_phone = "whatsapp:..." + to_phone[-4:] if len(to_phone) > 4 else to_phone
+        logger.info("Sending WhatsApp message", provider=self.provider, to=masked_phone)
         
         if self.provider == "meta_direct":
             if not settings.META_WHATSAPP_TOKEN or not settings.META_PHONE_NUMBER_ID:
@@ -39,10 +40,10 @@ class WhatsAppService:
                 from_=self.from_number,
                 to=to_phone
             )
-            logger.info("WhatsApp message sent", message_sid=message.sid, to=to_phone)
+            logger.info("WhatsApp message sent", message_sid=message.sid, to=masked_phone)
             return message.sid
         except Exception as e:
-            logger.error("WhatsApp send failed", error=str(e), to=to_phone)
+            logger.error("WhatsApp send failed", error=str(e), to=masked_phone)
             raise
 
     async def send_document(self, to_phone: str, media_url: str, caption: str = "") -> str:
@@ -50,7 +51,9 @@ class WhatsAppService:
         if not to_phone.startswith("whatsapp:"):
             to_phone = f"whatsapp:{to_phone}"
             
-        logger.info("Sending WhatsApp document", provider=self.provider, to=to_phone, media_url=media_url, caption=caption)
+        masked_phone = "whatsapp:..." + to_phone[-4:] if len(to_phone) > 4 else to_phone
+        clean_url = media_url.split("?")[0] if media_url else ""
+        logger.info("Sending WhatsApp document", provider=self.provider, to=masked_phone, media_url=clean_url, caption=caption)
         
         if self.provider == "meta_direct":
             if not settings.META_WHATSAPP_TOKEN or not settings.META_PHONE_NUMBER_ID:
@@ -71,7 +74,7 @@ class WhatsAppService:
             )
             return message.sid
         except Exception as e:
-            logger.error("WhatsApp document send failed", error=str(e), to=to_phone)
+            logger.error("WhatsApp document send failed", error=str(e), to=masked_phone)
             raise
 
     async def _send_via_meta(self, to_phone: str, body: str) -> str:

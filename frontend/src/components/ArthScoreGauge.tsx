@@ -64,10 +64,12 @@ export default function ArthScoreGauge({
             <span>Confidence:</span>
             <span style={{ color: confidenceColor, fontWeight: 700 }}>{confidence}</span>
           </div>
-          <div className="meta-row">
-            <span>Data Points:</span>
-            <span style={{ color: '#e2e8f0' }}>{dataPoints}</span>
-          </div>
+          {dataPoints !== undefined && dataPoints !== null && (
+            <div className="meta-row">
+              <span>Data Points:</span>
+              <span style={{ color: '#e2e8f0' }}>{dataPoints}</span>
+            </div>
+          )}
           {calculatedAt && (
             <div className="meta-row">
               <span>Updated:</span>
