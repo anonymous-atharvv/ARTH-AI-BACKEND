@@ -61,10 +61,10 @@ def get_sarvam_language_code(lang: str) -> str:
 async def route_transcription(audio_bytes: bytes, detected_language: str) -> dict:
     """Route audio to appropriate ASR based on language."""
     lang_code = get_sarvam_language_code(detected_language)
-    from ai.speech import _sarvam_transcribe, _whisper_transcribe
+    from ai.speech import _sarvam_transcribe, _gemini_transcribe
 
-    # Use Sarvam for Indian languages, Whisper for English/others
+    # Use Sarvam for Indian languages, Gemini for English/others
     if detected_language != "en" and settings.SARVAM_API_KEY:
         return await _sarvam_transcribe(audio_bytes, lang_code)
     else:
-        return await _whisper_transcribe(audio_bytes, detected_language)
+        return await _gemini_transcribe(audio_bytes, detected_language)

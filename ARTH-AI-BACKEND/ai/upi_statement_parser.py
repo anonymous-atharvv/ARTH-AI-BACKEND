@@ -7,6 +7,9 @@ Handles: Paytm export PDF, PhonePe history screenshot, BHIM text forward,
 import json
 import base64
 import structlog
+import google.generativeai as genai
+import io
+from PIL import Image
 from datetime import date
 from config import settings
 
@@ -29,8 +32,8 @@ If a field is not visible, use null. Extract ALL transactions, even if many."""
 
 async def parse_upi_statement_image(image_bytes: bytes, user_language: str = "hi") -> list[dict]:
     """Extract all transactions from a UPI statement screenshot using vision AI."""
-    if settings.MOCK_AI or not settings.OPENAI_API_KEY:
-        logger.info("Mock AI enabled or OPENAI_API_KEY not set. Using mock/stub statement parse response.")
+    if settings.MOCK_AI or not settings.GEMINI_API_KEY:
+        logger.info("Mock AI enabled or GEMINI_API_KEY not set. Using mock/stub statement parse response.")
         # Fallback to realistic mock transaction list
         return [
             {
@@ -54,25 +57,23 @@ async def parse_upi_statement_image(image_bytes: bytes, user_language: str = "hi
         ]
 
     try:
-        from openai import AsyncOpenAI
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        b64 = base64.b64encode(image_bytes).decode()
-
-        response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL_VISION,
-            messages=[
-                {"role": "system", "content": UPI_PARSE_PROMPT},
-                {"role": "user", "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "high"}},
-                    {"type": "text", "text": "Extract all UPI transactions from this statement."},
-                ]},
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.1,
-            max_tokens=2000,
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        img = Image.open(io.BytesIO(image_bytes))
+        model = genai.GenerativeModel(
+            settings.GEMINI_MODEL_VISION,
+            system_instruction=UPI_PARSE_PROMPT,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=2000,
+                temperature=0.1,
+                response_mime_type="application/json",
+            ),
         )
+        response = await model.generate_content_async([
+            "Extract all UPI transactions from this statement.",
+            img,
+        ])
 
-        raw = response.choices[0].message.content
+        raw = response.text
         data = json.loads(raw)
 
         # Handle both {"transactions": [...]} and plain array

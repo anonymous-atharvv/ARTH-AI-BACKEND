@@ -8,7 +8,7 @@ Handles:
 """
 import json
 import re
-from openai import AsyncOpenAI
+import google.generativeai as genai
 from datetime import date
 import structlog
 from typing import Tuple, Optional
@@ -101,22 +101,23 @@ Fuel expense thoda zyada tha (₹1,200 = 16% of income), dhyan rakhein."
 
 async def classify_intent(text: str) -> Tuple[str, float]:
     """Classify message intent. Returns (intent, confidence)"""
-    if settings.MOCK_AI or not settings.OPENAI_API_KEY:
+    if settings.MOCK_AI or not settings.GEMINI_API_KEY:
         res = _rule_based_classify(text)
         return res["intent"], res["confidence"]
         
     try:
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL_NLU,
-            messages=[
-                {"role": "system", "content": INTENT_SYSTEM_PROMPT},
-                {"role": "user", "content": text}
-            ],
-            max_tokens=60,
-            temperature=0.1
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model = genai.GenerativeModel(
+            settings.GEMINI_MODEL_NLU,
+            system_instruction=INTENT_SYSTEM_PROMPT,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=60,
+                temperature=0.1,
+                response_mime_type="application/json",
+            ),
         )
-        raw = response.choices[0].message.content.strip()
+        response = await model.generate_content_async(text)
+        raw = response.text.strip()
         raw = raw.replace("```json", "").replace("```", "").strip()
         data = json.loads(raw)
         return data["intent"], data["confidence"]
@@ -130,7 +131,7 @@ async def extract_transaction_from_text(
     user_language: str = "hi"
 ) -> ExtractedTransaction:
     """Extract structured transaction from natural language text"""
-    if settings.MOCK_AI or not settings.OPENAI_API_KEY:
+    if settings.MOCK_AI or not settings.GEMINI_API_KEY:
         # Try rule-based extraction
         amount = _extract_amount(text) or 100.0
         tx_type = "expense" if any(w in text.lower() for w in ("spent", "paid", "diya", "kharcha", "kharida")) else "income"
@@ -149,18 +150,19 @@ async def extract_transaction_from_text(
         )
 
     try:
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        genai.configure(api_key=settings.GEMINI_API_KEY)
         prompt = EXTRACTION_SYSTEM_PROMPT.replace("{today_date}", date.today().isoformat())
-        response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL_NLU,
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": text}
-            ],
-            max_tokens=300,
-            temperature=0.1
+        model = genai.GenerativeModel(
+            settings.GEMINI_MODEL_NLU,
+            system_instruction=prompt,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=300,
+                temperature=0.1,
+                response_mime_type="application/json",
+            ),
         )
-        raw = response.choices[0].message.content.strip()
+        response = await model.generate_content_async(text)
+        raw = response.text.strip()
         raw = raw.replace("```json", "").replace("```", "").strip()
         data = json.loads(raw)
         
@@ -204,7 +206,7 @@ async def answer_financial_query(
     user_language: str = "hi"
 ) -> str:
     """Answer natural language financial question using user's data"""
-    if settings.MOCK_AI or not settings.OPENAI_API_KEY:
+    if settings.MOCK_AI or not settings.GEMINI_API_KEY:
         # Standard templates for offline demo answers
         total_income = financial_data.get("mtd_income", 0)
         total_expenses = financial_data.get("mtd_expenses", 0)
@@ -223,23 +225,24 @@ async def answer_financial_query(
             )
 
     try:
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        genai.configure(api_key=settings.GEMINI_API_KEY)
         lang_instruction = "Respond in Hindi/Hinglish (mix of Hindi and English)." if user_language == "hi" else "Respond in English."
-        response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL_NLU,
-            messages=[
-                {"role": "system", "content": QUERY_SYSTEM_PROMPT + f"\n\n{lang_instruction}"},
-                {"role": "user", "content": f"""User's financial data:
+        model = genai.GenerativeModel(
+            settings.GEMINI_MODEL_NLU,
+            system_instruction=QUERY_SYSTEM_PROMPT + f"\n\n{lang_instruction}",
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=300,
+                temperature=0.7,
+            ),
+        )
+        user_content = f"""User's financial data:
 {json.dumps(financial_data, indent=2, ensure_ascii=False)}
 
 User's question: {question}
 
-Answer their question using the financial data. Be specific with numbers."""}
-            ],
-            max_tokens=300,
-            temperature=0.7
-        )
-        return response.choices[0].message.content.strip()
+Answer their question using the financial data. Be specific with numbers."""
+        response = await model.generate_content_async(user_content)
+        return response.text.strip()
     except Exception as e:
         logger.error("Financial query answer failed", error=str(e))
         return "Failed to query financial engine. Please try again."

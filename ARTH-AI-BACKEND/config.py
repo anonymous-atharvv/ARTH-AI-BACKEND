@@ -6,7 +6,7 @@ Validates critical vars on import — crashes fast if missing.
 """
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
-from typing import Optional, List
+from typing import Optional
 import sys
 import os
 
@@ -98,9 +98,9 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
 
     # AI APIs
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL_VISION: str = "gpt-4o-mini"
-    OPENAI_MODEL_NLU: str = "gpt-4o-mini"
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL_VISION: str = "gemini-2.0-flash-lite"
+    GEMINI_MODEL_NLU: str = "gemini-2.0-flash-lite"
     SARVAM_API_KEY: Optional[str] = None
     SARVAM_ASR_MODEL: str = "saarika-v2"
 
@@ -134,11 +134,11 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "arthai-dev-secret-key-change-in-production"
     ENVIRONMENT: str = _default_environment()
     LOG_LEVEL: str = "INFO"
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "https://arth-ai.07anonymous-ananta.workers.dev",
-    ]
+    ALLOWED_ORIGINS: str = (
+    "http://localhost:5173,"
+    "http://localhost:3000,"
+    "https://arth-ai-frontend.07anonymous-ananta.workers.dev"
+)
     SENTRY_DSN: Optional[str] = None
 
     # Feature flags
@@ -149,14 +149,15 @@ class Settings(BaseSettings):
     MOCK_AI: bool = True
 
     ARTHASCORE_MIN: int = 300
-    ARTHASCORE_MAX: int = 900
-
-    @field_validator("ALLOWED_ORIGINS", mode="before")
-    @classmethod
-    def parse_allowed_origins(cls, v):
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+    ARTHASCORE_MAX: int = 900    
+    
+    @property
+    def cors_origins(self) -> list[str]:
+        return [
+            origin.strip()
+            for origin in self.ALLOWED_ORIGINS.split(",")
+            if origin.strip()
+        ]
 
     @model_validator(mode="after")
     def validate_production_settings(self) -> "Settings":
@@ -185,7 +186,7 @@ class Settings(BaseSettings):
     def validate_critical(self):
         """Raise error in production or warn in demo/dev if critical env vars are missing."""
         critical = [
-            ("OPENAI_API_KEY", self.OPENAI_API_KEY),
+            ("GEMINI_API_KEY", self.GEMINI_API_KEY),
             ("TWILIO_ACCOUNT_SID", self.TWILIO_ACCOUNT_SID),
         ]
         missing = [name for name, val in critical if not val or "your_" in str(val)]
@@ -201,7 +202,7 @@ class Settings(BaseSettings):
                 raise ValueError("ENABLE_SARVAM_ASR=true but SARVAM_API_KEY not set in production.")
             else:
                 print("⚠️  WARNING: ENABLE_SARVAM_ASR=true but SARVAM_API_KEY not set.")
-                print("   Voice will fall back to OpenAI Whisper.")
+                print("   Voice will fall back to Gemini transcription.")
 
 
 settings = Settings()

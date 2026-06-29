@@ -70,8 +70,8 @@ Hugging Face Spaces runs full FastAPI applications inside custom Docker containe
    - In your Hugging Face Space, go to **Settings** -> **Variables and secrets** -> **New secret**.
    - Add all environment variables from `backend/.env.example` as Space secrets:
      - `DATABASE_URL` (your Neon connection string)
-     - `OPENAI_API_KEY`
-     - `SARVAM_API_KEY`
+      - `GEMINI_API_KEY`
+      - `SARVAM_API_KEY`
      - `TWILIO_ACCOUNT_SID`
      - `TWILIO_AUTH_TOKEN`
      - `TWILIO_WHATSAPP_FROM`

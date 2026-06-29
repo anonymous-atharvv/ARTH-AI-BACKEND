@@ -98,7 +98,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 # CORS Setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -168,7 +168,7 @@ async def health_check():
         logger.error("Health check Redis failure", error=str(e))
 
     # Configuration checks
-    checks["openai_configured"] = bool(settings.OPENAI_API_KEY)
+    checks["gemini_configured"] = bool(settings.GEMINI_API_KEY)
     checks["twilio_configured"] = bool(settings.TWILIO_AUTH_TOKEN)
     checks["sarvam_configured"] = bool(settings.SARVAM_API_KEY)
 

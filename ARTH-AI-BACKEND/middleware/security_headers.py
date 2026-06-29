@@ -18,7 +18,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: https:; "
-            "connect-src 'self' https://api.anthropic.com"
+            "connect-src 'self' https://generativelanguage.googleapis.com"
         )
         # Remove server info
         if "server" in response.headers:

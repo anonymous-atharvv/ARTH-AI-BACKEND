@@ -1,11 +1,14 @@
 # backend/ai/vision.py
 """
-GPT-4o-mini Vision: Receipt/Bill OCR to structured transaction data.
+Gemini Vision: Receipt/Bill OCR to structured transaction data.
 """
 import base64
 import json
 import structlog
 import httpx
+import google.generativeai as genai
+import io
+from PIL import Image
 from typing import Optional
 from datetime import date
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -33,27 +36,28 @@ Categories: sales_product, sales_service, inventory, labor_wages, transport_fuel
 utilities, equipment, marketing, food_personal, mobile_internet, other_expense, other_income."""
 
 async def extract_from_image(image_bytes: bytes) -> Optional[dict]:
-    """Extract transaction from receipt image using GPT-4V."""
-    if settings.MOCK_AI or not settings.OPENAI_API_KEY:
-        logger.warning("Mock AI enabled or OPENAI_API_KEY not set, returning mock")
+    """Extract transaction from receipt image using Gemini Vision."""
+    if settings.MOCK_AI or not settings.GEMINI_API_KEY:
+        logger.warning("Mock AI enabled or GEMINI_API_KEY not set, returning mock")
         return _mock_extraction()
 
     try:
-        from openai import AsyncOpenAI
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        b64 = base64.b64encode(image_bytes).decode()
-        response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL_VISION,
-            messages=[
-                {"role": "system", "content": RECEIPT_SYSTEM_PROMPT},
-                {"role": "user", "content": [
-                    {"type": "text", "text": "Extract transaction from this receipt:"},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "high"}},
-                ]},
-            ],
-            response_format={"type": "json_object"}, temperature=0.1, max_tokens=500,
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        img = Image.open(io.BytesIO(image_bytes))
+        model = genai.GenerativeModel(
+            settings.GEMINI_MODEL_VISION,
+            system_instruction=RECEIPT_SYSTEM_PROMPT,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=500,
+                temperature=0.1,
+                response_mime_type="application/json",
+            ),
         )
-        return json.loads(response.choices[0].message.content)
+        response = await model.generate_content_async([
+            "Extract transaction from this receipt:",
+            img,
+        ])
+        return json.loads(response.text)
     except Exception as e:
         logger.error("Vision extraction failed", error=str(e))
         return _mock_extraction()
@@ -66,7 +70,7 @@ def _mock_extraction():
 
 async def extract_from_receipt_image(media_url: str, language: str = "hi") -> ExtractedTransaction:
     """Download receipt image and extract structured transaction"""
-    if not media_url or settings.MOCK_AI or not settings.OPENAI_API_KEY:
+    if not media_url or settings.MOCK_AI or not settings.GEMINI_API_KEY:
         mock = _mock_extraction()
         return ExtractedTransaction(
             amount=mock["amount"],

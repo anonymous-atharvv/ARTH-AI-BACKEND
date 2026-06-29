@@ -36,20 +36,21 @@ async def categorize_with_embeddings(description: str, tx_type: str, db: AsyncSe
     if category not in ("other_expense", "other_income"):
         return category  # Confident keyword match
 
-    if not settings.OPENAI_API_KEY:
+    if not settings.GEMINI_API_KEY:
         return category
 
     try:
-        from openai import AsyncOpenAI
+        import google.generativeai as genai
         from models.transaction_embedding import TransactionEmbedding
 
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+
         # Get current embedding
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        response = await client.embeddings.create(
-            model="text-embedding-3-small",
-            input=description
+        result = genai.embed_content(
+            model="models/text-embedding-004",
+            content=description,
         )
-        curr_embedding = response.data[0].embedding
+        curr_embedding = result["embedding"]
 
         # Fetch stored embeddings
         stmt = select(TransactionEmbedding)
@@ -96,18 +97,18 @@ async def categorize_with_embeddings(description: str, tx_type: str, db: AsyncSe
 
 async def save_transaction_embedding(transaction_id: str, description: str, category_code: str, db: AsyncSession):
     """Generate and save embedding for a new transaction description."""
-    if not settings.OPENAI_API_KEY:
+    if not settings.GEMINI_API_KEY:
         return
     try:
-        from openai import AsyncOpenAI
+        import google.generativeai as genai
         from models.transaction_embedding import TransactionEmbedding
 
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        response = await client.embeddings.create(
-            model="text-embedding-3-small",
-            input=description
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        result = genai.embed_content(
+            model="models/text-embedding-004",
+            content=description,
         )
-        embedding = response.data[0].embedding
+        embedding = result["embedding"]
 
         tx_emb = TransactionEmbedding(
             transaction_id=transaction_id,
