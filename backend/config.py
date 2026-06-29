@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
     ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+    SENTRY_DSN: Optional[str] = None
 
     # Feature flags
     ENABLE_SARVAM_ASR: bool = False

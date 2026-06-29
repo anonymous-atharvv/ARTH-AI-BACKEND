@@ -1,28 +1,54 @@
 # backend/models/transaction.py
 import uuid
 from datetime import datetime, date as date_type
-from sqlalchemy import Column, String, Numeric, Boolean, Date, Time, Text, JSON, Float
+from sqlalchemy import Column, String, Float, Boolean, Date, Text, JSON, func
+from sqlalchemy.types import TypeDecorator
 from database import Base
 from models.user import GUID
+
+
+class ISODate(TypeDecorator):
+    """Store dates as ISO strings in SQLite, native Date in PostgreSQL."""
+    impl = String(10)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, date_type):
+            return value.isoformat()
+        if isinstance(value, str):
+            return value[:10]  # truncate to YYYY-MM-DD
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, date_type):
+            return value
+        try:
+            return date_type.fromisoformat(str(value)[:10])
+        except (ValueError, TypeError):
+            return None
 
 
 class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(GUID(), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(GUID(), nullable=False)
+    user_id = Column(GUID(), nullable=False, index=True)
     amount = Column(Float, nullable=False)
-    type = Column(String(10), nullable=False)  # income | expense | transfer
-    category_code = Column(String(50))
+    type = Column(String(10), nullable=False)
+    category_code = Column(String(50), index=True)
     counterparty = Column(String(200))
     description = Column(String(500))
     payment_method = Column(String(20), default="cash")
-    transaction_date = Column(String, nullable=False)  # ISO date string for SQLite compat
-    transaction_time = Column(String)
-    source = Column(String(20), nullable=False)  # image | voice | text | upi_statement | manual
+    transaction_date = Column(ISODate, nullable=False, index=True)  # ← KEY FIX
+    transaction_time = Column(String(8))
+    source = Column(String(20), nullable=False)
     raw_input = Column(Text)
     extracted_data = Column(JSON)
-    confidence_score = Column(Float)
+    confidence_score = Column(Float, default=0.95)
     verified = Column(Boolean, default=False)
     location = Column(String(200))
     notes = Column(Text)

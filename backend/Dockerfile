@@ -19,6 +19,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2-dev \
     libxslt1-dev \
     zlib1g-dev \
+    libharfbuzz0b \
+    libpangoft2-1.0-0 \
+    libglib2.0-0 \
+    libopenjp2-7-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libwebp-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory inside the container
@@ -31,8 +38,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend files to container
 COPY . .
 
-# Expose port 7860 (Default port expected by Hugging Face Spaces)
-EXPOSE 7860
+# Expose port 8000
+EXPOSE 8000
 
 # Start script
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

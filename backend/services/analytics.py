@@ -6,7 +6,7 @@ Powers the dashboard and Financial Passport.
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from typing import List, Dict
 from collections import defaultdict
 import structlog
@@ -258,3 +258,41 @@ class AnalyticsService:
                 "net": round(inc - exp, 0),
             })
         return series
+
+    async def refresh_cache(self, user_id: str):
+        """Update analytics_cache after each transaction — SQLite + PostgreSQL safe."""
+        try:
+            from models.analytics import AnalyticsCache
+            
+            summary = await self.get_dashboard_summary(user_id)
+            
+            # Check if cache row exists
+            result = await self.db.execute(
+                select(AnalyticsCache).where(AnalyticsCache.user_id == user_id)
+            )
+            cache = result.scalar_one_or_none()
+            
+            if cache:
+                cache.mtd_income = summary["mtd_income"]
+                cache.mtd_expenses = summary["mtd_expenses"]
+                cache.mtd_net_profit = summary["mtd_net_profit"]
+                cache.wtd_income = summary["wtd_income"]
+                cache.wtd_expenses = summary["wtd_expenses"]
+                cache.total_transactions = summary["total_transactions"]
+                cache.last_updated = datetime.utcnow().isoformat()
+            else:
+                cache = AnalyticsCache(
+                    user_id=user_id,
+                    mtd_income=summary["mtd_income"],
+                    mtd_expenses=summary["mtd_expenses"],
+                    mtd_net_profit=summary["mtd_net_profit"],
+                    wtd_income=summary["wtd_income"],
+                    wtd_expenses=summary["wtd_expenses"],
+                    total_transactions=summary["total_transactions"],
+                )
+                self.db.add(cache)
+            
+            await self.db.commit()
+        except Exception as e:
+            logger.error("Analytics cache refresh failed", error=str(e))
+            # Non-fatal — don't crash the transaction flow

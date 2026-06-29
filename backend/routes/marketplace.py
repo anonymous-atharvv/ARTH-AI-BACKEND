@@ -2,11 +2,13 @@
 """
 Simulated NBFC loan marketplace for demo purposes.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from agents.arthascore import ArthScoreEngine
+from middleware.auth import get_current_user_id
+from config import settings
 
 router = APIRouter()
 
@@ -33,8 +35,15 @@ NBFC_PARTNERS = [
 
 
 @router.get("/offers/{user_id}")
-async def get_loan_offers(user_id: str, db: AsyncSession = Depends(get_db)):
+async def get_loan_offers(
+    user_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
     """Get personalized loan offers based on ArthScore."""
+    if user_id != current_user_id and not settings.DEMO_MODE:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     scorer = ArthScoreEngine(db)
     score_data = await scorer.calculate(user_id)
     score = score_data["score"]

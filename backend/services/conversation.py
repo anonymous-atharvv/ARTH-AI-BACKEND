@@ -88,3 +88,14 @@ class ConversationStateManager:
             "nai", "na", "nahin", "❌", "👎"
         }
         return any(w in text_lower for w in no_words)
+
+    async def set_user_id(self, phone: str, user_id: str):
+        """Backfill user_id after user creation."""
+        from models.session import WhatsAppSession
+        result = await self.db.execute(
+            select(WhatsAppSession).where(WhatsAppSession.phone_number == phone)
+        )
+        session = result.scalar_one_or_none()
+        if session:
+            session.user_id = user_id
+            await self.db.commit()

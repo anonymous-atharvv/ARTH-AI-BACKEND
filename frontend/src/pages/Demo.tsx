@@ -1,25 +1,22 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../api/client';
+import useAuth from '../hooks/useAuth';
 import './Demo.css';
 
 export default function Demo() {
-  const [loading, setLoading] = useState(false);
   const [seeded, setSeeded] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { loginDemo, loading } = useAuth();
 
   const handleSeed = async () => {
-    setLoading(true);
     setError('');
     try {
-      const res = await apiClient.seedDemo();
+      const demoUserId = await loginDemo();
       setSeeded(true);
-      setTimeout(() => navigate(`/dashboard/${res.data.demo_user_id}`), 1500);
+      setTimeout(() => navigate(`/dashboard/${demoUserId}`), 1500);
     } catch (err: any) {
       setError(err?.message || 'Failed to seed demo data');
-    } finally {
-      setLoading(false);
     }
   };
 

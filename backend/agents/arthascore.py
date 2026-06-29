@@ -20,6 +20,15 @@ FACTOR_WEIGHTS = {
 }
 
 
+def _to_date(val) -> date:
+    if isinstance(val, date):
+        return val
+    try:
+        return date.fromisoformat(str(val)[:10])
+    except (ValueError, TypeError):
+        return date.today()
+
+
 class ArthScoreEngine:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -45,7 +54,7 @@ class ArthScoreEngine:
         total_inc = sum(float(t.amount) for t in inc_tx)
         total_exp = sum(float(t.amount) for t in exp_tx)
 
-        dates = [date.fromisoformat(t.transaction_date) if isinstance(t.transaction_date, str) else t.transaction_date for t in txs]
+        dates = [_to_date(t.transaction_date) for t in txs]
 
         f = {
             "income_regularity": self._cv(w_inc),
@@ -54,7 +63,7 @@ class ArthScoreEngine:
             "transaction_volume": max(0, int(min(100, (len(txs) / lookback_days / 0.67) * 80))),
             "business_longevity": min(100, int((date.today() - min(dates)).days / 365 * 100)),
             "payment_consistency": self._pay_cons(exp_tx, lookback_days),
-            "data_completeness": int(min(100, len(set(t.transaction_date for t in txs)) / max(1, lookback_days * 6 / 7) * 100)),
+            "data_completeness": int(min(100, len(set(_to_date(t.transaction_date) for t in txs)) / max(1, lookback_days * 6 / 7) * 100)),
         }
 
         ws = sum(f[k] * FACTOR_WEIGHTS[k] for k in FACTOR_WEIGHTS)
@@ -75,7 +84,7 @@ class ArthScoreEngine:
         n = days // 7
         w = [0.0] * n
         for t in txs:
-            d = date.fromisoformat(t.transaction_date) if isinstance(t.transaction_date, str) else t.transaction_date
+            d = _to_date(t.transaction_date)
             i = (date.today() - d).days // 7
             if 0 <= i < n: w[n - 1 - i] += float(t.amount)
         return w
@@ -97,7 +106,7 @@ class ArthScoreEngine:
         if not txs: return 70
         ws = set()
         for t in txs:
-            d = date.fromisoformat(t.transaction_date) if isinstance(t.transaction_date, str) else t.transaction_date
+            d = _to_date(t.transaction_date)
             ws.add((date.today() - d).days // 7)
         return int(len(ws) / max(1, days // 7) * 100)
 

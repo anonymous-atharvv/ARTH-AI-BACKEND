@@ -36,7 +36,7 @@ class AgentState(TypedDict):
     # Processing
     intent: Optional[str]
     intent_confidence: float
-    extracted_transaction: Optional[ExtractedTransaction]
+    extracted_transaction: Optional[dict]
     needs_clarification: bool
     clarification_message: Optional[str]
     
@@ -194,7 +194,7 @@ async def extract_transaction(state: AgentState) -> AgentState:
             extracted = await extract_transaction_from_text(
                 state["raw_body"], state["user_language"])
             
-        state["extracted_transaction"] = extracted
+        state["extracted_transaction"] = extracted.model_dump(mode="json") if hasattr(extracted, "model_dump") else extracted.dict()
         logger.info("Transaction extracted",
                    amount=extracted.amount,
                    type=extracted.type,
@@ -214,7 +214,8 @@ async def validate_extraction(state: AgentState) -> AgentState:
     if state.get("error") or state.get("response_text") or state.get("response_sent"):
         return state
     
-    tx = state["extracted_transaction"]
+    tx_val = state["extracted_transaction"]
+    tx = ExtractedTransaction(**tx_val) if isinstance(tx_val, dict) else tx_val
     
     if tx.confidence < settings.CONFIDENCE_THRESHOLD:
         state["needs_clarification"] = True
@@ -278,7 +279,8 @@ async def store_transaction(state: AgentState) -> AgentState:
     from database import AsyncSessionLocal
     from models.transaction import Transaction
     
-    tx = state["extracted_transaction"]
+    tx_val = state["extracted_transaction"]
+    tx = ExtractedTransaction(**tx_val) if isinstance(tx_val, dict) else tx_val
     
     async with AsyncSessionLocal() as db:
         new_tx = Transaction(

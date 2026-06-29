@@ -10,7 +10,7 @@ class WhatsAppSession(Base):
     __tablename__ = "whatsapp_sessions"
 
     id = Column(GUID(), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(GUID(), nullable=False)
+    user_id = Column(GUID(), nullable=True)
     phone_number = Column(String(15), nullable=False, unique=True)
     state = Column(String(50), nullable=False, default="IDLE")
     pending_transaction = Column(JSON)

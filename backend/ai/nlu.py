@@ -11,7 +11,7 @@ import re
 from openai import AsyncOpenAI
 from datetime import date
 import structlog
-from typing import Tuple
+from typing import Tuple, Optional
 
 from config import settings
 from schemas.whatsapp import ExtractedTransaction

@@ -24,7 +24,7 @@ class ExtractedTransaction(BaseModel):
     counterparty: Optional[str] = None
     description: str
     payment_method: PaymentMethod = PaymentMethod.cash
-    transaction_date: str  # ISO date string
+    transaction_date: date  # ISO date object
     confidence: float  # 0.0 to 1.0
     raw_text: Optional[str] = None
     language_detected: str = "hi"

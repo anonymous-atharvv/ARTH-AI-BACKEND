@@ -32,6 +32,11 @@ async def _process_message_async(payload: dict):
             await db.commit()
             await db.refresh(user)
             
+            from services.conversation import ConversationStateManager, ConvState
+            state_mgr = ConversationStateManager(db)
+            await state_mgr.set_state(phone, ConvState.ONBOARDING_NAME)
+            await state_mgr.set_user_id(phone, str(user.id))
+            
             from services.whatsapp import WhatsAppService
             wa = WhatsAppService()
             await wa.send_message(phone,

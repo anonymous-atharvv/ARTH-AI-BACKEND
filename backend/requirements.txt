@@ -46,3 +46,6 @@ structlog==24.1.0
 tenacity==8.3.0
 numpy==1.26.4
 scikit-learn==1.5.0
+slowapi==0.1.9
+sentry-sdk[fastapi]==2.3.1
+prometheus-fastapi-instrumentator==6.1.0
