@@ -4,11 +4,14 @@ import uuid
 from fastapi import HTTPException, Security, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
+from redis.exceptions import RedisError
 from datetime import datetime, timedelta
 from typing import Optional
 from config import settings
+import structlog
 
 security = HTTPBearer(auto_error=False)
+logger = structlog.get_logger()
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24 * 7  # 7 days
@@ -37,13 +40,21 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     
     # SEC-02: Check Redis denylist
-    from cache import get_redis
-    redis = await get_redis()
     jti = payload.get("jti")
     if jti:
-        is_revoked = await redis.get(f"revoked_token:{jti}")
-        if is_revoked:
-            raise HTTPException(status_code=401, detail="Token has been revoked")
+        try:
+            from cache import CacheUnavailableError, get_redis
+            redis = await get_redis()
+            is_revoked = await redis.get(f"revoked_token:{jti}")
+            if is_revoked:
+                raise HTTPException(status_code=401, detail="Token has been revoked")
+        except HTTPException:
+            raise
+        except (CacheUnavailableError, RedisError, OSError) as exc:
+            if settings.REDIS_REQUIRED:
+                logger.error("Redis token denylist unavailable", error=str(exc))
+                raise HTTPException(status_code=503, detail="Authentication cache unavailable")
+            logger.warning("Skipping token denylist check; Redis unavailable", error=str(exc))
 
     # ARCH-06: Multi-tenancy JWT sub verification
     if not payload.get("sub"):

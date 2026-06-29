@@ -29,8 +29,8 @@ If a field is not visible, use null. Extract ALL transactions, even if many."""
 
 async def parse_upi_statement_image(image_bytes: bytes, user_language: str = "hi") -> list[dict]:
     """Extract all transactions from a UPI statement screenshot using vision AI."""
-    if not settings.OPENAI_API_KEY:
-        logger.info("OPENAI_API_KEY not set. Using mock/stub statement parse response.")
+    if settings.MOCK_AI or not settings.OPENAI_API_KEY:
+        logger.info("Mock AI enabled or OPENAI_API_KEY not set. Using mock/stub statement parse response.")
         # Fallback to realistic mock transaction list
         return [
             {

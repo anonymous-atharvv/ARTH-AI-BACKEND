@@ -9,8 +9,9 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from sentry_sdk.integrations.celery import CeleryIntegration
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import structlog
@@ -61,9 +62,10 @@ if settings.SENTRY_DSN:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("ArthAI backend starting up", env=settings.ENVIRONMENT)
-    # Warm Redis pool
-    from cache import get_redis, close_redis
-    await get_redis()
+    from cache import close_redis, ping_redis
+    redis_ready = await ping_redis()
+    if settings.REDIS_REQUIRED and not redis_ready:
+        raise RuntimeError("REDIS_REQUIRED=true but Redis is unavailable")
     
     if settings.ENVIRONMENT != "production":
         await create_db_tables()
@@ -117,6 +119,23 @@ app.include_router(marketplace.router, prefix="/api/v1/marketplace", tags=["Mark
 app.include_router(aa.router, prefix="/api/v1/aa", tags=["Account Aggregator"])
 
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception(
+        "Unhandled request exception",
+        path=request.url.path,
+        method=request.method,
+        error=str(exc),
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "request_id": getattr(request.state, "request_id", None),
+        },
+    )
+
+
 # Mount static files directory
 static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 os.makedirs(static_dir, exist_ok=True)
@@ -128,7 +147,7 @@ async def health_check():
     """Enhanced health check with database, Redis, and config verification."""
     from database import AsyncSessionLocal
     from sqlalchemy import text
-    from cache import get_redis
+    from cache import ping_redis
     
     checks = {}
 
@@ -143,9 +162,7 @@ async def health_check():
 
     # Redis check
     try:
-        redis = await get_redis()
-        await redis.ping()
-        checks["redis"] = "connected"
+        checks["redis"] = "connected" if await ping_redis() else "unavailable"
     except Exception as e:
         checks["redis"] = f"error: {str(e)[:100]}"
         logger.error("Health check Redis failure", error=str(e))
@@ -155,14 +172,18 @@ async def health_check():
     checks["twilio_configured"] = bool(settings.TWILIO_AUTH_TOKEN)
     checks["sarvam_configured"] = bool(settings.SARVAM_API_KEY)
 
-    status = "healthy" if checks.get("database") == "connected" and checks.get("redis") == "connected" else "degraded"
+    redis_ok = checks.get("redis") == "connected" or not settings.REDIS_REQUIRED
+    status = "healthy" if checks.get("database") == "connected" and redis_ok else "degraded"
 
     return {
         "status": status,
         "checks": checks,
+        "database": checks.get("database"),
+        "redis": checks.get("redis"),
         "service": "ArthAI Backend",
         "version": "3.0.0",
         "environment": settings.ENVIRONMENT,
+        "redis_required": settings.REDIS_REQUIRED,
     }
 
 
@@ -191,6 +212,7 @@ async def _seed_categories():
     from database import AsyncSessionLocal
     from models.category import Category
     from sqlalchemy import select
+    from sqlalchemy.exc import IntegrityError
 
     CATEGORIES = [
         ("sales_product", "Product Sales", "माल बिक्री", "income", "🛒"),
@@ -215,12 +237,19 @@ async def _seed_categories():
     ]
 
     async with AsyncSessionLocal() as db:
-        result = await db.execute(select(Category).limit(1))
-        if result.scalar_one_or_none() is None:
-            for code, name_en, name_hi, type_, icon in CATEGORIES:
+        created = 0
+        for code, name_en, name_hi, type_, icon in CATEGORIES:
+            result = await db.execute(select(Category).where(Category.code == code))
+            if result.scalar_one_or_none() is None:
                 db.add(Category(
                     code=code, name_en=name_en, name_hi=name_hi,
                     type=type_, icon=icon
                 ))
-            await db.commit()
-            logger.info("Categories seeded", count=len(CATEGORIES))
+                created += 1
+        if created:
+            try:
+                await db.commit()
+                logger.info("Categories seeded", count=created)
+            except IntegrityError:
+                await db.rollback()
+                logger.info("Categories already seeded by another worker")

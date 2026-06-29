@@ -101,7 +101,7 @@ Fuel expense thoda zyada tha (₹1,200 = 16% of income), dhyan rakhein."
 
 async def classify_intent(text: str) -> Tuple[str, float]:
     """Classify message intent. Returns (intent, confidence)"""
-    if not settings.OPENAI_API_KEY:
+    if settings.MOCK_AI or not settings.OPENAI_API_KEY:
         res = _rule_based_classify(text)
         return res["intent"], res["confidence"]
         
@@ -130,7 +130,7 @@ async def extract_transaction_from_text(
     user_language: str = "hi"
 ) -> ExtractedTransaction:
     """Extract structured transaction from natural language text"""
-    if not settings.OPENAI_API_KEY:
+    if settings.MOCK_AI or not settings.OPENAI_API_KEY:
         # Try rule-based extraction
         amount = _extract_amount(text) or 100.0
         tx_type = "expense" if any(w in text.lower() for w in ("spent", "paid", "diya", "kharcha", "kharida")) else "income"
@@ -204,7 +204,7 @@ async def answer_financial_query(
     user_language: str = "hi"
 ) -> str:
     """Answer natural language financial question using user's data"""
-    if not settings.OPENAI_API_KEY:
+    if settings.MOCK_AI or not settings.OPENAI_API_KEY:
         # Standard templates for offline demo answers
         total_income = financial_data.get("mtd_income", 0)
         total_expenses = financial_data.get("mtd_expenses", 0)

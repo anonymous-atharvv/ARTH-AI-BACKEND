@@ -11,10 +11,11 @@ logger = structlog.get_logger()
 
 async def transcribe_audio(audio_bytes: bytes, language: str = "hi-IN") -> dict:
     """Transcribe audio — tries Sarvam first, falls back to Whisper."""
-    if settings.ENABLE_SARVAM_ASR and settings.SARVAM_API_KEY:
-        return await _sarvam_transcribe(audio_bytes, language)
-    if settings.OPENAI_API_KEY:
-        return await _whisper_transcribe(audio_bytes, language)
+    if not settings.MOCK_AI:
+        if settings.ENABLE_SARVAM_ASR and settings.SARVAM_API_KEY:
+            return await _sarvam_transcribe(audio_bytes, language)
+        if settings.OPENAI_API_KEY:
+            return await _whisper_transcribe(audio_bytes, language)
     return {"text": "Demo transcription: Aaj maine 500 rupye ka saman kharida.", "language": "hi", "confidence": 0.85}
 
 async def _sarvam_transcribe(audio_bytes: bytes, language: str) -> dict:
@@ -54,7 +55,7 @@ async def voice_to_transaction(media_url: str, language: str = "hi") -> Extracte
     """Download voice note, transcribe it, and convert transcript to transaction"""
     from ai.nlu import extract_transaction_from_text
     
-    if not media_url or not (settings.OPENAI_API_KEY or settings.SARVAM_API_KEY):
+    if not media_url or settings.MOCK_AI or not (settings.OPENAI_API_KEY or settings.SARVAM_API_KEY):
         return ExtractedTransaction(
             amount=250.0,
             type=TransactionType.expense,

@@ -34,8 +34,8 @@ utilities, equipment, marketing, food_personal, mobile_internet, other_expense, 
 
 async def extract_from_image(image_bytes: bytes) -> Optional[dict]:
     """Extract transaction from receipt image using GPT-4V."""
-    if not settings.OPENAI_API_KEY:
-        logger.warning("OPENAI_API_KEY not set, returning mock")
+    if settings.MOCK_AI or not settings.OPENAI_API_KEY:
+        logger.warning("Mock AI enabled or OPENAI_API_KEY not set, returning mock")
         return _mock_extraction()
 
     try:
@@ -66,7 +66,7 @@ def _mock_extraction():
 
 async def extract_from_receipt_image(media_url: str, language: str = "hi") -> ExtractedTransaction:
     """Download receipt image and extract structured transaction"""
-    if not media_url or not settings.OPENAI_API_KEY:
+    if not media_url or settings.MOCK_AI or not settings.OPENAI_API_KEY:
         mock = _mock_extraction()
         return ExtractedTransaction(
             amount=mock["amount"],

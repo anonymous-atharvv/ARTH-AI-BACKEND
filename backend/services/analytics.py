@@ -16,6 +16,12 @@ from models.transaction import Transaction
 logger = structlog.get_logger()
 
 
+def _date_key(value) -> str:
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value)[:10]
+
+
 class AnalyticsService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -38,16 +44,17 @@ class AnalyticsService:
         mtd_expenses = sum(float(t.amount) for t in txs if t.type == "expense")
         mtd_net = mtd_income - mtd_expenses
 
+        week_start_key = week_start.isoformat()
         wtd_income = sum(
             float(t.amount) for t in txs
-            if t.type == "income" and t.transaction_date >= week_start.isoformat()
+            if t.type == "income" and _date_key(t.transaction_date) >= week_start_key
         )
         wtd_expenses = sum(
             float(t.amount) for t in txs
-            if t.type == "expense" and t.transaction_date >= week_start.isoformat()
+            if t.type == "expense" and _date_key(t.transaction_date) >= week_start_key
         )
 
-        days_active = len(set(t.transaction_date for t in txs))
+        days_active = len(set(_date_key(t.transaction_date) for t in txs))
         avg_daily_income = mtd_income / days_active if days_active > 0 else 0
 
         # Top categories
@@ -154,7 +161,7 @@ class AnalyticsService:
         daily_net = defaultdict(float)
         for t in txs:
             sign = 1 if t.type == "income" else -1
-            daily_net[t.transaction_date] += sign * float(t.amount)
+            daily_net[_date_key(t.transaction_date)] += sign * float(t.amount)
 
         history = []
         for i in range(30, 0, -1):
@@ -216,7 +223,7 @@ class AnalyticsService:
     def _group_by_week(self, txs, num_weeks: int) -> List[dict]:
         weekly = defaultdict(lambda: {"income": 0.0, "expenses": 0.0})
         for t in txs:
-            tx_date_str = t.transaction_date if isinstance(t.transaction_date, str) else t.transaction_date.isoformat()
+            tx_date_str = _date_key(t.transaction_date)
             tx_date = date.fromisoformat(tx_date_str)
             days_ago = (date.today() - tx_date).days
             week_num = days_ago // 7
@@ -239,7 +246,7 @@ class AnalyticsService:
     def _group_by_month(self, txs, num_months: int) -> List[dict]:
         monthly = defaultdict(lambda: {"income": 0.0, "expenses": 0.0})
         for t in txs:
-            tx_date_str = t.transaction_date if isinstance(t.transaction_date, str) else t.transaction_date.isoformat()
+            tx_date_str = _date_key(t.transaction_date)
             key = tx_date_str[:7]  # "YYYY-MM"
             bucket = "income" if t.type == "income" else "expenses"
             monthly[key][bucket] += float(t.amount)

@@ -74,6 +74,7 @@ async def run_migrations_online() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=settings.DATABASE_CONNECT_ARGS,
     )
 
     async with connectable.connect() as connection:

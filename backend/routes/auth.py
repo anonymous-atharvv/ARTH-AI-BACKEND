@@ -6,17 +6,19 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel, field_validator
+from redis.exceptions import RedisError
 from database import get_db
 from models.user import User
 from middleware.auth import create_access_token, verify_token
 from middleware.rate_limit import limiter
-from cache import get_redis
+from cache import CacheUnavailableError, get_redis
 from config import settings
 import structlog
-from datetime import datetime
+from datetime import datetime, timedelta
 
 router = APIRouter()
 logger = structlog.get_logger()
+_dev_otp_cache: dict[str, tuple[str, datetime]] = {}
 
 
 class SendOTPRequest(BaseModel):
@@ -48,6 +50,25 @@ class VerifyOTPRequest(BaseModel):
         return cleaned
 
 
+def _allow_dev_otp_fallback() -> bool:
+    return settings.ENVIRONMENT != "production" and not settings.REDIS_REQUIRED
+
+
+def _store_dev_otp(phone: str, otp: str) -> None:
+    _dev_otp_cache[phone] = (otp, datetime.utcnow() + timedelta(minutes=5))
+
+
+def _read_dev_otp(phone: str) -> str | None:
+    cached = _dev_otp_cache.get(phone)
+    if not cached:
+        return None
+    otp, expires_at = cached
+    if expires_at <= datetime.utcnow():
+        _dev_otp_cache.pop(phone, None)
+        return None
+    return otp
+
+
 @router.post("/send-otp")
 @limiter.limit("5/hour")
 async def send_otp(request: Request, otp_req: SendOTPRequest):
@@ -55,8 +76,16 @@ async def send_otp(request: Request, otp_req: SendOTPRequest):
     # Generate OTP
     otp = "".join(random.choices(string.digits, k=6))
     
-    redis = await get_redis()
-    await redis.setex(f"otp:{otp_req.phone}", 300, otp)  # 5-minute expiry
+    try:
+        redis = await get_redis()
+        await redis.setex(f"otp:{otp_req.phone}", 300, otp)  # 5-minute expiry
+    except (CacheUnavailableError, RedisError, OSError) as exc:
+        if _allow_dev_otp_fallback():
+            _store_dev_otp(otp_req.phone, otp)
+            logger.warning("Using development OTP memory cache", error=str(exc))
+            return {"message": "OTP sent", "expires_in": 300}
+        logger.error("OTP cache unavailable", error=str(exc))
+        raise HTTPException(status_code=503, detail="OTP service temporarily unavailable")
     
     # In production: send via Twilio WhatsApp
     # For demo: log it suffix for privacy, never log OTP
@@ -69,14 +98,25 @@ async def send_otp(request: Request, otp_req: SendOTPRequest):
 @limiter.limit("10/hour")
 async def verify_otp(request: Request, otp_req: VerifyOTPRequest, db: AsyncSession = Depends(get_db)):
     """Verify OTP and return JWT token."""
-    redis = await get_redis()
-    stored_otp = await redis.get(f"otp:{otp_req.phone}")
+    try:
+        redis = await get_redis()
+        stored_otp = await redis.get(f"otp:{otp_req.phone}")
+        stored_otp_str = stored_otp.decode() if isinstance(stored_otp, bytes) else stored_otp
+        delete_otp = lambda: redis.delete(f"otp:{otp_req.phone}")
+    except (CacheUnavailableError, RedisError, OSError) as exc:
+        if _allow_dev_otp_fallback():
+            stored_otp_str = _read_dev_otp(otp_req.phone)
+            delete_otp = lambda: _dev_otp_cache.pop(otp_req.phone, None)
+        else:
+            logger.error("OTP cache unavailable", error=str(exc))
+            raise HTTPException(status_code=503, detail="OTP service temporarily unavailable")
     
-    stored_otp_str = stored_otp.decode() if isinstance(stored_otp, bytes) else stored_otp
     if not stored_otp_str or stored_otp_str != otp_req.otp:
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
     
-    await redis.delete(f"otp:{otp_req.phone}")
+    maybe_awaitable = delete_otp()
+    if hasattr(maybe_awaitable, "__await__"):
+        await maybe_awaitable
     
     # Get or create user
     result = await db.execute(select(User).where(User.phone_number == otp_req.phone))
@@ -139,12 +179,18 @@ async def get_demo_token(request: Request, db: AsyncSession = Depends(get_db)):
 async def logout(request: Request, token: dict = Depends(verify_token), db: AsyncSession = Depends(get_db)):
     jti = token.get("jti")
     if jti:
-        redis = await get_redis()
-        exp_timestamp = token.get("exp")
-        if exp_timestamp:
-            ttl = int(exp_timestamp - datetime.utcnow().timestamp())
-            if ttl > 0:
-                await redis.setex(f"revoked_token:{jti}", ttl, "1")
+        try:
+            redis = await get_redis()
+            exp_timestamp = token.get("exp")
+            if exp_timestamp:
+                ttl = int(exp_timestamp - datetime.utcnow().timestamp())
+                if ttl > 0:
+                    await redis.setex(f"revoked_token:{jti}", ttl, "1")
+        except (CacheUnavailableError, RedisError, OSError) as exc:
+            if settings.REDIS_REQUIRED:
+                logger.error("Logout denylist write failed", error=str(exc))
+                raise HTTPException(status_code=503, detail="Logout service temporarily unavailable")
+            logger.warning("Logout completed without Redis denylist write", error=str(exc))
     
     from services.audit import log_audit_event
     await log_audit_event(
@@ -155,6 +201,4 @@ async def logout(request: Request, token: dict = Depends(verify_token), db: Asyn
         details={"jti": jti}
     )
     return {"message": "Logged out successfully"}
-
-
 

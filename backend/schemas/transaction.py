@@ -1,6 +1,6 @@
 # backend/schemas/transaction.py
 import re
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_serializer, field_validator
 from typing import Optional, Dict, Any
 from datetime import date, datetime
 from enum import Enum
@@ -69,10 +69,14 @@ class TransactionResponse(BaseModel):
     counterparty: Optional[str] = None
     description: Optional[str] = None
     payment_method: str = "cash"
-    transaction_date: str
+    transaction_date: date
     source: str
     verified: bool = False
     confidence_score: Optional[float] = None
     created_at: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("transaction_date")
+    def serialize_transaction_date(self, value: date) -> str:
+        return value.isoformat()

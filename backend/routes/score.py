@@ -52,6 +52,23 @@ async def get_arthascore(
     return result
 
 
+@router.get("")
+@router.get("/")
+@limiter.limit("10/minute")
+async def get_current_user_arthascore(
+    request: Request,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Calculate and return ArthScore for the authenticated user."""
+    return await get_arthascore(
+        request=request,
+        user_id=current_user_id,
+        current_user_id=current_user_id,
+        db=db,
+    )
+
+
 @router.get("/{user_id}/history")
 @limiter.limit("30/minute")
 async def get_arthascore_history(
@@ -90,4 +107,3 @@ async def get_arthascore_history(
             for h in reversed(history)
         ]
     }
-

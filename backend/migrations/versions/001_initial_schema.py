@@ -16,6 +16,28 @@ depends_on = None
 
 
 def upgrade() -> None:
+    expected_tables = {
+        'users',
+        'categories',
+        'transactions',
+        'whatsapp_sessions',
+        'documents',
+        'arthascore_history',
+        'analytics_cache',
+        'insights_log',
+        'audit_logs',
+    }
+    existing_tables = set(sa.inspect(op.get_bind()).get_table_names())
+    if expected_tables.issubset(existing_tables):
+        return
+    existing_managed_tables = expected_tables.intersection(existing_tables)
+    if existing_managed_tables:
+        raise RuntimeError(
+            "Database has a partial unmanaged schema. Back up the database, "
+            "then manually reconcile or reset these existing tables before "
+            f"running migrations: {sorted(existing_managed_tables)}"
+        )
+
     # Users table
     op.create_table(
         'users',

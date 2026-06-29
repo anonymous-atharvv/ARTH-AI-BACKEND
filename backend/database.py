@@ -22,12 +22,13 @@ if "sqlite" in settings.DATABASE_URL:
     engine = create_async_engine(
         settings.DATABASE_URL,
         echo=settings.LOG_LEVEL == "DEBUG",
-        connect_args={"check_same_thread": False},
+        connect_args=settings.DATABASE_CONNECT_ARGS,
     )
 else:
     engine = create_async_engine(
         settings.DATABASE_URL,
         echo=settings.LOG_LEVEL == "DEBUG",
+        connect_args=settings.DATABASE_CONNECT_ARGS,
         pool_pre_ping=True,
         pool_size=10,
         max_overflow=20,

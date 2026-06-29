@@ -57,6 +57,26 @@ async def list_transactions(
     }
 
 
+@router.get("")
+@router.get("/")
+async def list_current_user_transactions(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, le=200),
+    type: Optional[str] = None,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """List transactions for the authenticated user."""
+    return await list_transactions(
+        user_id=current_user_id,
+        page=page,
+        limit=limit,
+        type=type,
+        current_user_id=current_user_id,
+        db=db,
+    )
+
+
 @router.post("/{user_id}", response_model=TransactionResponse)
 async def create_transaction(
     user_id: str,
@@ -117,4 +137,3 @@ async def create_transaction(
     await invalidate_user_caches(user_id)
 
     return tx
-
