@@ -53,7 +53,11 @@ Neon provides serverless PostgreSQL with scale-to-zero capabilities and transact
 
 ## 🤗 2. Backend Deployment: Hugging Face Spaces (Docker Space)
 
-Hugging Face Spaces can run full FastAPI applications inside custom Docker containers.
+Hugging Face Spaces runs full FastAPI applications inside custom Docker containers.
+
+### Important Port & Dependency Details
+- **Port 7860**: Hugging Face Spaces routes traffic to port `7860` by default. The `backend/Dockerfile` is configured to `EXPOSE 7860` and start the Uvicorn server on port `7860`.
+- **System Dependencies**: The builder stage installs `libgdk-pixbuf-2.0-dev` instead of the legacy `libgdk-pixbuf2.0-dev` to ensure compatibility with modern Debian-slim images.
 
 ### Setup Instructions
 1. **Create Space**:
@@ -86,11 +90,25 @@ Hugging Face Spaces can run full FastAPI applications inside custom Docker conta
 
 ---
 
-## 🌐 3. Frontend Deployment: Cloudflare Pages
+## 🌐 3. Frontend Deployment: Cloudflare Pages / Workers
 
-The React single-page application is hosted globally on Cloudflare's edge network.
+The React single-page application is hosted globally on Cloudflare's edge network. You can deploy it either via Git Integration (Cloudflare Pages Dashboard) or via Wrangler CLI.
 
-### Setup Instructions
+### Option A: Deployment via Wrangler CLI (Recommended)
+1. **Configure Environment Variables**:
+   Create a `.env` file in the `frontend` folder with your production API URL:
+   ```env
+   VITE_API_URL="https://[username]-[space-name].hf.space"
+   ```
+2. **Build and Deploy**:
+   From the project directory:
+   ```bash
+   cd frontend
+   npm run deploy
+   ```
+   *Note: Under the hood, this runs `npm run build && wrangler deploy`, compiling the React bundle into `./dist` and publishing it to Cloudflare Pages/Workers as defined in `wrangler.jsonc`.*
+
+### Option B: Deployment via Cloudflare Pages (Git Integration)
 1. **Push Frontend Repository**: Push your code to GitHub or GitLab.
 2. **Configure Cloudflare Pages**:
    - Go to **Cloudflare Dashboard** -> **Workers & Pages** -> **Create Application** -> **Pages** -> **Connect to Git**.

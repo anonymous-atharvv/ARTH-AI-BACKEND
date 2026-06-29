@@ -33,7 +33,7 @@ services:
 
   web:
     build:
-      context: ./ARTH-AI-BACKEND
+      context: .
       dockerfile: Dockerfile
     container_name: arthai-backend
     environment:
@@ -54,7 +54,7 @@ services:
 
   celery_worker:
     build:
-      context: ./ARTH-AI-BACKEND
+      context: .
       dockerfile: Dockerfile
     container_name: arthai-celery-worker
     command: celery -A tasks.celery_app.celery_app worker --loglevel=info
@@ -71,7 +71,7 @@ services:
 
   celery_beat:
     build:
-      context: ./ARTH-AI-BACKEND
+      context: .
       dockerfile: Dockerfile
     container_name: arthai-celery-beat
     command: celery -A tasks.celery_app.celery_app beat --loglevel=info
