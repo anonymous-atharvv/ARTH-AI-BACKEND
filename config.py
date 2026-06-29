@@ -6,7 +6,7 @@ Validates critical vars on import — crashes fast if missing.
 """
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
-from typing import Optional, List
+from typing import Optional
 import sys
 import os
 
@@ -134,11 +134,11 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "arthai-dev-secret-key-change-in-production"
     ENVIRONMENT: str = _default_environment()
     LOG_LEVEL: str = "INFO"
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "https://arth-ai.07anonymous-ananta.workers.dev",
-    ]
+    ALLOWED_ORIGINS: str = (
+    "http://localhost:5173,"
+    "http://localhost:3000,"
+    "https://arth-ai-frontend.07anonymous-ananta.workers.dev"
+)
     SENTRY_DSN: Optional[str] = None
 
     # Feature flags
@@ -149,14 +149,15 @@ class Settings(BaseSettings):
     MOCK_AI: bool = True
 
     ARTHASCORE_MIN: int = 300
-    ARTHASCORE_MAX: int = 900
-
-    @field_validator("ALLOWED_ORIGINS", mode="before")
-    @classmethod
-    def parse_allowed_origins(cls, v):
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+    ARTHASCORE_MAX: int = 900    
+    
+    @property
+    def cors_origins(self) -> list[str]:
+        return [
+            origin.strip()
+            for origin in self.ALLOWED_ORIGINS.split(",")
+            if origin.strip()
+        ]
 
     @model_validator(mode="after")
     def validate_production_settings(self) -> "Settings":
