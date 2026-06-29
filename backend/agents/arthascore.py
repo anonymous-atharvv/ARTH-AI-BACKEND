@@ -12,6 +12,13 @@ import structlog
 
 logger = structlog.get_logger()
 
+try:
+    from sklearn.linear_model import LinearRegression
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+
+
 FACTOR_WEIGHTS = {
     "income_regularity": 0.25, "growth_trajectory": 0.20,
     "expense_control": 0.15, "transaction_volume": 0.15,
@@ -72,13 +79,41 @@ class ArthScoreEngine:
         mn = (total_inc - total_exp) / max(1, lookback_days / 30)
         ml = min(500000, round(max(0, mn * 4) / 1000) * 1000)
 
-        return {
+        res_dict = {
             "score": score, "grade": grade, "grade_hi": grade_hi, "factors": f,
             "max_loan_eligible": ml, "data_points": len(txs), "period_days": lookback_days,
             "insight_hi": f"ArthScore {score}/900 — {grade_hi}! Monthly net: ₹{mn:,.0f}.",
             "insight_en": f"ArthScore {score}/900 — {grade}! Monthly net: ₹{mn:,.0f}.",
             "calculated_at": date.today().isoformat(),
         }
+
+        # Save to database history
+        try:
+            from models.arthascore import ArthScoreHistory
+            history_entry = ArthScoreHistory(
+                user_id=user_id,
+                score=score,
+                income_regularity=f.get("income_regularity"),
+                growth_trajectory=f.get("growth_trajectory"),
+                expense_control=f.get("expense_control"),
+                transaction_volume=f.get("transaction_volume"),
+                business_longevity=f.get("business_longevity"),
+                payment_consistency=f.get("payment_consistency"),
+                data_completeness=f.get("data_completeness"),
+                data_points=len(txs),
+                period_days=lookback_days,
+                snapshot_data=res_dict,
+            )
+            self.db.add(history_entry)
+            await self.db.commit()
+        except Exception as e:
+            logger.error("Failed to save ArthScoreHistory snapshot", user_id=user_id, error=str(e))
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
+
+        return res_dict
 
     def _weeks(self, txs, days):
         n = days // 7
@@ -95,12 +130,21 @@ class ArthScoreEngine:
         return max(0, int(100 * (1 - min(float(np.std(a) / np.mean(a)), 1.0))))
 
     def _growth(self, w):
-        if len(w) < 3: return 50
-        from sklearn.linear_model import LinearRegression
+        if len(w) < 3:
+            return 50
+        if not SKLEARN_AVAILABLE:
+            n = len(w)
+            if n < 2:
+                return 50
+            slope = (w[-1] - w[0]) / max(1, n - 1)
+            avg = sum(w) / n if n > 0 else 1
+            return max(0, min(100, int(50 + slope / max(1, avg) * 250)))
+
         X = np.arange(len(w)).reshape(-1, 1)
         m = LinearRegression().fit(X, np.array(w))
         avg = np.mean([x for x in w if x > 0]) or 1
         return max(0, min(100, int(50 + m.coef_[0] / avg * 250)))
+
 
     def _pay_cons(self, txs, days):
         if not txs: return 70

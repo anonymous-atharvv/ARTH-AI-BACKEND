@@ -1,0 +1,70 @@
+.trajectory-card {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.trajectory-header {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.trajectory-title {
+  color: #f8fafc;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.trajectory-subtitle {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.trajectory-chart-wrapper {
+  margin-top: 10px;
+}
+
+.trajectory-tooltip {
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-family: 'Inter', system-ui, sans-serif;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.tooltip-date {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  margin: 0 0 6px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tooltip-score {
+  color: #f8fafc;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+}
+
+.tooltip-score span {
+  color: #6366f1;
+}
+
+.tooltip-grade {
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  margin: 0 0 4px 0;
+}
+
+.tooltip-datapoints {
+  color: #64748b;
+  font-size: 0.75rem;
+  margin: 0;
+}

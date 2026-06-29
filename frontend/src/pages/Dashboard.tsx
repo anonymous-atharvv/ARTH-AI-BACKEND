@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, Navigate } from 'react-router-dom';
 import apiClient from '../api/client';
 import ArthScoreGauge from '../components/ArthScoreGauge';
 import PLChart from '../components/PLChart';
@@ -7,6 +7,9 @@ import TransactionFeed from '../components/TransactionFeed';
 import LanguageToggle from '../components/LanguageToggle';
 import LoanImpactCalculator from '../components/LoanImpactCalculator';
 import InsightCard from '../components/InsightCard';
+import ArthScoreTrajectory from '../components/ArthScoreTrajectory';
+import BenchmarkCard from '../components/BenchmarkCard';
+import AAConsentButton from '../components/AAConsentButton';
 import { useLanguage } from '../contexts/LanguageContext';
 import type { DashboardSummary, ArthScore, PnlData, Transaction } from '../types';
 import './Dashboard.css';
@@ -15,14 +18,27 @@ const DEMO_USER_ID = 'raju-demo-001';
 
 export default function Dashboard() {
   const { userId } = useParams<{ userId: string }>();
-  const uid = userId || DEMO_USER_ID;
+  const authUserId = localStorage.getItem('arthai_user_id');
+  const token = localStorage.getItem('arthai_token');
+
+  if (!token) {
+    return <Navigate to="/demo" replace />;
+  }
+
+  const uid = userId || authUserId || DEMO_USER_ID;
+  if (uid !== authUserId) {
+    return <Navigate to="/demo" replace />;
+  }
   const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [score, setScore] = useState<ArthScore | null>(null);
+  const [history, setHistory] = useState<any[]>([]);
   const [pnl, setPnl] = useState<PnlData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [benchmarks, setBenchmarks] = useState<any>(null);
+  const [forecast, setForecast] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [pnlPeriod, setPnlPeriod] = useState('90d');
 
@@ -33,22 +49,29 @@ export default function Dashboard() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [sumRes, scoreRes, pnlRes, txRes] = await Promise.all([
+      const [sumRes, scoreRes, pnlRes, txRes, historyRes, benchRes, forecastRes] = await Promise.all([
         apiClient.getSummary(uid),
         apiClient.getArthScore(uid),
         apiClient.getPnl(uid, pnlPeriod),
         apiClient.getTransactions(uid, 1, 50),
+        apiClient.getArthScoreHistory(uid),
+        apiClient.getPeerBenchmarks(uid),
+        apiClient.getCashFlowForecast(uid),
       ]);
       setSummary(sumRes.data);
       setScore(scoreRes.data);
       setPnl(pnlRes.data);
       setTransactions(txRes.data.items || []);
+      setHistory(historyRes.data.history || []);
+      setBenchmarks(benchRes.data);
+      setForecast(forecastRes.data);
     } catch (err) {
       console.error('Dashboard load failed:', err);
     } finally {
       setLoading(false);
     }
   };
+
 
   if (loading) {
     return (
@@ -157,9 +180,24 @@ export default function Dashboard() {
                 score={score.score}
                 grade={score.grade}
                 maxLoan={score.max_loan_eligible}
+                calculatedAt={score.calculated_at}
+                dataPoints={score.data_points}
               />
               <div style={{ marginTop: '20px' }}>
-                <LoanImpactCalculator maxLoan={score.max_loan_eligible} score={score.score} />
+                <LoanImpactCalculator maxLoan={score.max_loan_eligible} score={score.score} actualSurplus={summary?.mtd_net_profit || 0} />
+              </div>
+              {history && history.length > 0 && (
+                <div style={{ marginTop: '20px' }}>
+                  <ArthScoreTrajectory history={history} />
+                </div>
+              )}
+              {benchmarks && benchmarks.available && (
+                <div style={{ marginTop: '20px' }}>
+                  <BenchmarkCard data={benchmarks} />
+                </div>
+              )}
+              <div style={{ marginTop: '20px' }}>
+                <AAConsentButton userId={uid} />
               </div>
             </>
           )}

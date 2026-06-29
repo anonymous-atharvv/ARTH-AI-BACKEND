@@ -3,19 +3,14 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 from typing import Optional
-import redis.asyncio as aioredis
 
 from database import get_db
 from models.transaction import Transaction
 from schemas.transaction import TransactionCreate, TransactionResponse
 from middleware.auth import get_current_user_id
 from config import settings
-from services.analytics import AnalyticsService
 
 router = APIRouter()
-
-async def get_redis():
-    return await aioredis.from_url(settings.REDIS_URL)
 
 
 @router.get("/{user_id}")
@@ -28,7 +23,10 @@ async def list_transactions(
     db: AsyncSession = Depends(get_db),
 ):
     """List transactions for a user (paginated)."""
-    if user_id != current_user_id and not settings.DEMO_MODE:
+    if settings.ENVIRONMENT == "production":
+        if current_user_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif user_id != current_user_id and not settings.DEMO_MODE:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     query = select(Transaction).where(Transaction.user_id == user_id)
@@ -67,7 +65,10 @@ async def create_transaction(
     db: AsyncSession = Depends(get_db),
 ):
     """Manually add a transaction."""
-    if user_id != current_user_id and not settings.DEMO_MODE:
+    if settings.ENVIRONMENT == "production":
+        if current_user_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif user_id != current_user_id and not settings.DEMO_MODE:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     tx = Transaction(
@@ -88,15 +89,32 @@ async def create_transaction(
     await db.commit()
     await db.refresh(tx)
 
-    # Refresh analytics cache
-    analytics = AnalyticsService(db)
-    await analytics.refresh_cache(user_id)
-
-    # Invalidate Redis cache for ArthScore
+    # Generate and save transaction embedding for future categorization
     try:
-        redis = await get_redis()
-        await redis.delete(f"arthscore:{user_id}")
+        from ai.categorizer import save_transaction_embedding
+        await save_transaction_embedding(
+            str(tx.id),
+            tx.description or tx.raw_input or "",
+            tx.category_code,
+            db
+        )
     except Exception:
         pass
 
+    # Refresh analytics cache asynchronously
+
+    try:
+        from tasks.message_tasks import refresh_analytics_cache
+        refresh_analytics_cache.delay(user_id)
+    except Exception:
+        # Fallback if Celery is down
+        from services.analytics import AnalyticsService
+        analytics = AnalyticsService(db)
+        await analytics.refresh_cache(user_id)
+
+    # Invalidate Redis cache
+    from services.cache_manager import invalidate_user_caches
+    await invalidate_user_caches(user_id)
+
     return tx
+

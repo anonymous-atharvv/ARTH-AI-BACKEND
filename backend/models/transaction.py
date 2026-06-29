@@ -1,7 +1,7 @@
 # backend/models/transaction.py
 import uuid
 from datetime import datetime, date as date_type
-from sqlalchemy import Column, String, Float, Boolean, Date, Text, JSON, func
+from sqlalchemy import Column, String, Float, Boolean, Date, Text, JSON, func, Index
 from sqlalchemy.types import TypeDecorator
 from database import Base
 from models.user import GUID
@@ -34,6 +34,10 @@ class ISODate(TypeDecorator):
 
 class Transaction(Base):
     __tablename__ = "transactions"
+
+    __table_args__ = (
+        Index("idx_transactions_user_date", "user_id", "transaction_date"),
+    )
 
     id = Column(GUID(), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(GUID(), nullable=False, index=True)

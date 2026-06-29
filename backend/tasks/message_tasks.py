@@ -1,19 +1,60 @@
+# backend/tasks/message_tasks.py
 from tasks.celery_app import celery_app
 import asyncio
 import structlog
 
 logger = structlog.get_logger()
 
-@celery_app.task(name="process_whatsapp_message", bind=True, max_retries=2)
+@celery_app.task(
+    name="process_whatsapp_message",
+    bind=True,
+    max_retries=3,
+    default_retry_delay=10,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=60,
+)
 def process_whatsapp_message(self, payload: dict):
     """
     Main async task for processing incoming WhatsApp messages.
     Runs the full LangGraph agent pipeline.
     """
-    asyncio.run(_process_message_async(payload))
+    try:
+        asyncio.run(_process_message_async(payload))
+    except Exception as exc:
+        logger.error("WhatsApp processing failed, retrying",
+                     attempt=self.request.retries,
+                     error=str(exc))
+        raise self.retry(exc=exc)
+
+
+
+@celery_app.task(
+    name="refresh_analytics_cache",
+    bind=True,
+    max_retries=3,
+    default_retry_delay=5,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=30,
+)
+def refresh_analytics_cache(self, user_id: str):
+    """
+    Asynchronously refreshes the database-cached analytics summary for a user.
+    """
+    asyncio.run(_refresh_cache_async(user_id))
+
+
+async def _refresh_cache_async(user_id: str):
+    from database import AsyncSessionLocal
+    from services.analytics import AnalyticsService
+    async with AsyncSessionLocal() as db:
+        analytics = AnalyticsService(db)
+        await analytics.refresh_cache(user_id)
+
 
 async def _process_message_async(payload: dict):
-    from agents.financial_agent import build_financial_agent
+    from agents.financial_agent import compiled_agent
     from database import AsyncSessionLocal
     from models.user import User
     from sqlalchemy import select
@@ -50,7 +91,6 @@ async def _process_message_async(payload: dict):
             return
         
         # Build and run agent
-        agent = build_financial_agent()
         initial_state = {
             "user_phone": phone,
             "user_id": str(user.id),
@@ -70,4 +110,4 @@ async def _process_message_async(payload: dict):
             "error": None,
         }
         
-        await agent.ainvoke(initial_state)
+        await compiled_agent.ainvoke(initial_state)

@@ -5,9 +5,10 @@ import './LoanImpactCalculator.css';
 interface Props {
   maxLoan: number;
   score: number;
+  actualSurplus: number;
 }
 
-export default function LoanImpactCalculator({ maxLoan, score }: Props) {
+export default function LoanImpactCalculator({ maxLoan, score, actualSurplus }: Props) {
   const { t } = useLanguage();
   const [loanAmount, setLoanAmount] = useState(Math.min(50000, maxLoan));
   const [tenureMonths, setTenureMonths] = useState(12);
@@ -32,6 +33,10 @@ export default function LoanImpactCalculator({ maxLoan, score }: Props) {
 
   const totalPayment = emi * tenureMonths;
   const totalInterest = totalPayment - loanAmount;
+
+  const surplus = actualSurplus > 0 ? actualSurplus : 15000;
+  const surplusPct = Math.round((emi / surplus) * 100);
+  const isSafe = surplusPct <= 35;
 
   return (
     <div className="calc-card">
@@ -96,12 +101,12 @@ export default function LoanImpactCalculator({ maxLoan, score }: Props) {
       </div>
 
       <div className="calc-affordability">
-        <div className="affordability-indicator">
-          <span className="dot safe"></span>
+        <div className={`affordability-indicator ${isSafe ? 'safe' : 'danger'}`}>
+          <span className={`dot ${isSafe ? 'safe' : 'danger'}`}></span>
           <span className="aff-text">
             {t(
-              `EMI represents ~${Math.round((emi / 15000) * 100)}% of your monthly P&L surplus. Safe level!`,
-              `ईएमआई आपके मासिक अधिशेष का ~${Math.round((emi / 15000) * 100)}% है। सुरक्षित स्तर!`
+              `EMI represents ~${surplusPct}% of your monthly P&L surplus (${isSafe ? 'Safe level!' : 'High debt load!'})`,
+              `ईएमआई आपके मासिक अधिशेष का ~${surplusPct}% है (${isSafe ? 'सुरक्षित स्तर!' : 'उच्च ऋण भार!'})`
             )}
           </span>
         </div>

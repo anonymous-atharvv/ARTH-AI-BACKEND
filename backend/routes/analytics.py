@@ -18,8 +18,12 @@ async def get_pnl(
     db: AsyncSession = Depends(get_db),
 ):
     """Returns P&L data for charting."""
-    if user_id != current_user_id and not settings.DEMO_MODE:
+    if settings.ENVIRONMENT == "production":
+        if current_user_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif user_id != current_user_id and not settings.DEMO_MODE:
         raise HTTPException(status_code=403, detail="Forbidden")
+
     service = AnalyticsService(db)
     return await service.get_pnl_data(user_id, period)
 
@@ -31,8 +35,12 @@ async def get_cash_flow(
     db: AsyncSession = Depends(get_db)
 ):
     """7-day and 30-day cash flow + 7-day forecast."""
-    if user_id != current_user_id and not settings.DEMO_MODE:
+    if settings.ENVIRONMENT == "production":
+        if current_user_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif user_id != current_user_id and not settings.DEMO_MODE:
         raise HTTPException(status_code=403, detail="Forbidden")
+
     service = AnalyticsService(db)
     return await service.get_cash_flow(user_id)
 
@@ -44,7 +52,49 @@ async def get_summary(
     db: AsyncSession = Depends(get_db)
 ):
     """Dashboard summary — all KPIs in one call."""
-    if user_id != current_user_id and not settings.DEMO_MODE:
+    if settings.ENVIRONMENT == "production":
+        if current_user_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif user_id != current_user_id and not settings.DEMO_MODE:
         raise HTTPException(status_code=403, detail="Forbidden")
+
     service = AnalyticsService(db)
     return await service.get_dashboard_summary(user_id)
+
+
+@router.get("/benchmarks/{user_id}")
+async def get_benchmarks(
+    user_id: str,
+    period_days: int = Query(30, ge=7, le=365),
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Peer cohort benchmarking comparison."""
+    if settings.ENVIRONMENT == "production":
+        if current_user_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif user_id != current_user_id and not settings.DEMO_MODE:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    from services.benchmarking import get_peer_benchmarks
+    return await get_peer_benchmarks(db, user_id, period_days)
+
+
+@router.get("/cash-flow/forecast/{user_id}")
+async def get_cash_flow_forecast(
+    user_id: str,
+    forecast_days: int = Query(30, ge=7, le=90),
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Predictive 30-day cash flow forecast with seasonality."""
+    if settings.ENVIRONMENT == "production":
+        if current_user_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif user_id != current_user_id and not settings.DEMO_MODE:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    from services.forecasting import forecast_cash_flow
+    return await forecast_cash_flow(db, user_id, forecast_days)
+
+

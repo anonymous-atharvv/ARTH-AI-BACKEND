@@ -80,16 +80,30 @@ export const apiClient = {
 
   // Score
   getArthScore: (userId: string) => api.get(`/score/${userId}`),
+  getArthScoreHistory: (userId: string) => api.get(`/score/${userId}/history`),
 
   // Reports
   generatePassport: (userId: string) => api.post(`/reports/passport/${userId}`),
   generateGstInvoice: (userId: string, transactionId: string) => api.post(`/reports/gst-invoice/${userId}/${transactionId}`),
+  getGSTR1Data: (userId: string, year: number, month: number) =>
+    api.get(`/reports/gst-report/${userId}`, { params: { year, month } }),
 
   // Marketplace
   getLoanOffers: (userId: string) => api.get(`/marketplace/offers/${userId}`),
 
   // Demo
   seedDemo: () => api.post('/demo/seed'),
+
+  // Account Aggregator
+  initiateAAConsent: (userId: string) => api.post(`/aa/consent/initiate/${userId}`),
+
+  // Benchmarking
+  getPeerBenchmarks: (userId: string, periodDays: number = 30) =>
+    api.get(`/analytics/benchmarks/${userId}`, { params: { period_days: periodDays } }),
+
+  // Cash flow forecast
+  getCashFlowForecast: (userId: string, forecastDays: number = 30) =>
+    api.get(`/analytics/cash-flow/forecast/${userId}`, { params: { forecast_days: forecastDays } }),
 };
 
 export default apiClient;

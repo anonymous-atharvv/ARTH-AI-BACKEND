@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, Navigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import apiClient from '../api/client';
 import LanguageToggle from '../components/LanguageToggle';
@@ -9,7 +9,17 @@ const DEMO_USER_ID = 'raju-demo-001';
 
 export default function Passport() {
   const { userId } = useParams<{ userId: string }>();
-  const uid = userId || DEMO_USER_ID;
+  const authUserId = localStorage.getItem('arthai_user_id');
+  const token = localStorage.getItem('arthai_token');
+
+  if (!token) {
+    return <Navigate to="/demo" replace />;
+  }
+
+  const uid = userId || authUserId || DEMO_USER_ID;
+  if (uid !== authUserId) {
+    return <Navigate to="/demo" replace />;
+  }
   const { t } = useLanguage();
   const navigate = useNavigate();
 

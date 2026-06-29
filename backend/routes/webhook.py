@@ -1,9 +1,8 @@
-# backend/routes/webhook.py
-from fastapi import APIRouter, Request, Response, HTTPException
+from fastapi import APIRouter, Request, Response, HTTPException, BackgroundTasks
 from fastapi.responses import PlainTextResponse
 from twilio.request_validator import RequestValidator
 from config import settings
-import structlog, asyncio
+import structlog
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -11,14 +10,14 @@ logger = structlog.get_logger()
 
 def validate_twilio_request(request_url: str, form_params: dict, signature: str) -> bool:
     """Validate Twilio webhook signature."""
-    if settings.DEMO_MODE or not settings.TWILIO_AUTH_TOKEN:
-        return True  # Skip in demo mode
+    if settings.WEBHOOK_SKIP_VERIFY or not settings.TWILIO_AUTH_TOKEN:
+        return True  # Skip signature validation
     validator = RequestValidator(settings.TWILIO_AUTH_TOKEN)
     return validator.validate(request_url, form_params, signature)
 
 
 @router.post("/whatsapp")
-async def whatsapp_webhook(request: Request):
+async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
     try:
         form_data = await request.form()
         params = dict(form_data)
@@ -48,7 +47,7 @@ async def whatsapp_webhook(request: Request):
             process_whatsapp_message.delay(payload)
         except Exception as celery_err:
             logger.warning("Celery unavailable, async fallback", error=str(celery_err))
-            asyncio.create_task(_process_async(payload))
+            background_tasks.add_task(_process_async, payload)
         
         return Response(
             content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',

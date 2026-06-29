@@ -14,12 +14,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import structlog
+import logging
 import os
 
 from config import settings
+
+def configure_logging():
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.processors.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.JSONRenderer() if settings.ENVIRONMENT == "production"
+            else structlog.dev.ConsoleRenderer(),
+        ],
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        logger_factory=structlog.PrintLoggerFactory(),
+    )
+
+configure_logging()
+logger = structlog.get_logger()
+
 from database import create_db_tables
 from middleware.rate_limit import limiter, rate_limit_error_handler
 from middleware.security_headers import SecurityHeadersMiddleware
+from middleware.request_id import RequestIDMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
@@ -42,10 +61,17 @@ if settings.SENTRY_DSN:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("ArthAI backend starting up", env=settings.ENVIRONMENT)
-    await create_db_tables()
+    # Warm Redis pool
+    from cache import get_redis, close_redis
+    await get_redis()
+    
+    if settings.ENVIRONMENT != "production":
+        await create_db_tables()
     # Seed categories on startup
     await _seed_categories()
     yield
+    # Close Redis pool
+    await close_redis()
     logger.info("ArthAI backend shutting down")
 
 
@@ -55,6 +81,9 @@ app = FastAPI(
     version="3.0.0",
     lifespan=lifespan,
 )
+
+# Request ID Middleware (first in stack)
+app.add_middleware(RequestIDMiddleware)
 
 # Rate Limiting Setup
 app.state.limiter = limiter
@@ -74,7 +103,7 @@ app.add_middleware(
 )
 
 # ─── Route Registration ─────────────────────────────────────────────
-from routes import webhook, transactions, analytics, score, reports, users, demo, marketplace, auth
+from routes import webhook, transactions, analytics, score, reports, users, demo, marketplace, auth, aa
 
 app.include_router(webhook.router, prefix="/webhook", tags=["WhatsApp Webhook"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
@@ -85,6 +114,8 @@ app.include_router(score.router, prefix="/api/v1/score", tags=["ArthScore"])
 app.include_router(reports.router, prefix="/api/v1/reports", tags=["Reports"])
 app.include_router(demo.router, prefix="/api/v1/demo", tags=["Demo"])
 app.include_router(marketplace.router, prefix="/api/v1/marketplace", tags=["Marketplace"])
+app.include_router(aa.router, prefix="/api/v1/aa", tags=["Account Aggregator"])
+
 
 # Mount static files directory
 static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -94,23 +125,46 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.get("/health")
 async def health_check():
-    """Enhanced health check with database verification."""
+    """Enhanced health check with database, Redis, and config verification."""
     from database import AsyncSessionLocal
     from sqlalchemy import text
+    from cache import get_redis
+    
+    checks = {}
+
+    # Database check
     try:
         async with AsyncSessionLocal() as db:
             await db.execute(text("SELECT 1"))
-        db_ok = True
+        checks["database"] = "connected"
     except Exception as e:
-        db_ok = False
+        checks["database"] = f"error: {str(e)[:100]}"
         logger.error("Health check database failure", error=str(e))
-        
+
+    # Redis check
+    try:
+        redis = await get_redis()
+        await redis.ping()
+        checks["redis"] = "connected"
+    except Exception as e:
+        checks["redis"] = f"error: {str(e)[:100]}"
+        logger.error("Health check Redis failure", error=str(e))
+
+    # Configuration checks
+    checks["openai_configured"] = bool(settings.OPENAI_API_KEY)
+    checks["twilio_configured"] = bool(settings.TWILIO_AUTH_TOKEN)
+    checks["sarvam_configured"] = bool(settings.SARVAM_API_KEY)
+
+    status = "healthy" if checks.get("database") == "connected" and checks.get("redis") == "connected" else "degraded"
+
     return {
-        "status": "healthy" if db_ok else "unhealthy",
-        "database": "connected" if db_ok else "disconnected",
+        "status": status,
+        "checks": checks,
         "service": "ArthAI Backend",
-        "version": "3.0.0"
+        "version": "3.0.0",
+        "environment": settings.ENVIRONMENT,
     }
+
 
 
 @app.get("/ready")
@@ -128,7 +182,8 @@ async def readiness_probe():
 
 
 # Prometheus Instrumentation
-Instrumentator().instrument(app).expose(app)
+Instrumentator().instrument(app).expose(app, endpoint="/metrics-internal")
+
 
 
 async def _seed_categories():

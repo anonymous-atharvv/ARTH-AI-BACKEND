@@ -36,8 +36,12 @@ async def get_user_by_phone(
     db: AsyncSession = Depends(get_db)
 ):
     """Get user by phone number (secured)."""
-    if phone != current_phone and not settings.DEMO_MODE:
+    if settings.ENVIRONMENT == "production":
+        if phone != current_phone:
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif phone != current_phone and not settings.DEMO_MODE:
         raise HTTPException(status_code=403, detail="Forbidden")
+
 
     result = await db.execute(select(User).where(User.phone_number == phone))
     user = result.scalar_one_or_none()

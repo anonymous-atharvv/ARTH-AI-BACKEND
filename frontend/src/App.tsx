@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LanguageProvider } from './contexts/LanguageContext';
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
 const Demo = lazy(() => import('./pages/Demo'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -40,23 +42,43 @@ const LoadingFallback = () => (
 
 function App() {
   return (
-    <LanguageProvider>
-      <BrowserRouter>
-        <Suspense fallback={<LoadingFallback />}>
-          <Routes>
-            <Route path="/" element={<Navigate to="/demo" replace />} />
-            <Route path="/demo" element={<Demo />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/:userId" element={<Dashboard />} />
-            <Route path="/transactions" element={<Transactions />} />
-            <Route path="/transactions/:userId" element={<Transactions />} />
-            <Route path="/passport" element={<Passport />} />
-            <Route path="/passport/:userId" element={<Passport />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
-    </LanguageProvider>
+    <AuthProvider>
+      <LanguageProvider>
+        <BrowserRouter>
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/demo" replace />} />
+              <Route path="/demo" element={<Demo />} />
+              <Route
+                path="/dashboard"
+                element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+              />
+              <Route
+                path="/dashboard/:userId"
+                element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+              />
+              <Route
+                path="/transactions"
+                element={<ProtectedRoute><Transactions /></ProtectedRoute>}
+              />
+              <Route
+                path="/transactions/:userId"
+                element={<ProtectedRoute><Transactions /></ProtectedRoute>}
+              />
+              <Route
+                path="/passport"
+                element={<ProtectedRoute><Passport /></ProtectedRoute>}
+              />
+              <Route
+                path="/passport/:userId"
+                element={<ProtectedRoute><Passport /></ProtectedRoute>}
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </LanguageProvider>
+    </AuthProvider>
   );
 }
 

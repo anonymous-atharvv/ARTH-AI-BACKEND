@@ -20,19 +20,19 @@ class PassportGenerator:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def generate(self, user_id: str) -> dict:
+    async def generate(self, user_id: str, lookback_days: int = 90) -> dict:
         from models.user import User
         result = await self.db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
 
         scorer = ArthScoreEngine(self.db)
-        score_data = await scorer.calculate(user_id, lookback_days=90)
+        score_data = await scorer.calculate(user_id, lookback_days=lookback_days)
 
         analytics = AnalyticsService(self.db)
-        pnl = await analytics.get_pnl_data(user_id, "90d")
+        pnl = await analytics.get_pnl_data(user_id, f"{lookback_days}d")
 
         doc_id = f"AP-{user_id[:8].upper()}-{date.today().strftime('%Y%m%d')}"
-        data = self._build_template_data(user, score_data, pnl, doc_id)
+        data = self._build_template_data(user, score_data, pnl, doc_id, lookback_days)
 
         # Render HTML
         template_src = PASSPORT_HTML.read_text(encoding="utf-8")
@@ -70,7 +70,10 @@ class PassportGenerator:
             html_bytes = html_content.encode("utf-8")
             return html_bytes, "html", "text/html; charset=utf-8"
 
-    def _build_template_data(self, user, score_data, pnl, doc_id) -> dict:
+    def _build_template_data(self, user, score_data, pnl, doc_id, lookback_days: int = 90) -> dict:
+        period_days = score_data.get("period_days") or lookback_days
+        months_divisor = max(1.0, period_days / 30.0)
+
         return {
             "doc_id": doc_id,
             "generated_date": date.today().strftime("%d %B %Y"),
@@ -93,7 +96,7 @@ class PassportGenerator:
             "total_income": pnl.get("total_income", 0),
             "total_expenses": pnl.get("total_expenses", 0),
             "net_profit": pnl.get("net_profit", 0),
-            "avg_monthly_income": pnl.get("total_income", 0) / 3,
+            "avg_monthly_income": pnl.get("total_income", 0) / months_divisor,
             "net_margin_pct": round(pnl.get("net_margin_pct", 0), 1),
             "payment_regularity": score_data.get("factors", {}).get("payment_consistency", 70),
             "monthly_data": pnl.get("series", [])[:6],

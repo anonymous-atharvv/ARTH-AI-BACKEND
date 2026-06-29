@@ -5,9 +5,18 @@ interface Props {
   grade: string;
   maxLoan: number;
   animate?: boolean;
+  calculatedAt?: string;
+  dataPoints?: number;
 }
 
-export default function ArthScoreGauge({ score, grade, maxLoan, animate = true }: Props) {
+export default function ArthScoreGauge({
+  score,
+  grade,
+  maxLoan,
+  animate = true,
+  calculatedAt,
+  dataPoints
+}: Props) {
   const min = 300, max = 900;
   const pct = Math.max(0, Math.min(1, (score - min) / (max - min)));
   const getColor = () => {
@@ -28,6 +37,9 @@ export default function ArthScoreGauge({ score, grade, maxLoan, animate = true }
   };
   const filledEnd = startAngle + pct * (endAngle - startAngle);
 
+  const confidence = dataPoints === undefined ? 'Unknown' : dataPoints >= 20 ? 'High' : dataPoints >= 10 ? 'Medium' : 'Low';
+  const confidenceColor = confidence === 'High' ? '#4ade80' : confidence === 'Medium' ? '#facc15' : '#f87171';
+
   return (
     <div className="arth-gauge-card">
       <div className="gauge-header">
@@ -46,6 +58,24 @@ export default function ArthScoreGauge({ score, grade, maxLoan, animate = true }
         <span className="loan-label">Loan Eligible</span>
         <span className="loan-amount" style={{ color: getColor() }}>₹{maxLoan.toLocaleString('en-IN')}</span>
       </div>
+      {(dataPoints !== undefined || calculatedAt) && (
+        <div className="gauge-meta">
+          <div className="meta-row">
+            <span>Confidence:</span>
+            <span style={{ color: confidenceColor, fontWeight: 700 }}>{confidence}</span>
+          </div>
+          <div className="meta-row">
+            <span>Data Points:</span>
+            <span style={{ color: '#e2e8f0' }}>{dataPoints}</span>
+          </div>
+          {calculatedAt && (
+            <div className="meta-row">
+              <span>Updated:</span>
+              <span style={{ color: '#94a3b8' }}>{calculatedAt}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

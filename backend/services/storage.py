@@ -37,7 +37,7 @@ class StorageService:
                 url = self.s3_client.generate_presigned_url(
                     "get_object",
                     Params={"Bucket": self.bucket_name, "Key": key},
-                    ExpiresIn=30 * 24 * 3600  # 30 days
+                    ExpiresIn=7 * 24 * 3600  # 7 days
                 )
                 return url
             except Exception as e:

@@ -74,8 +74,11 @@ async def voice_to_transaction(media_url: str, language: str = "hi") -> Extracte
             resp.raise_for_status()
             audio_bytes = resp.content
 
-        transcription_result = await transcribe_audio(audio_bytes, "hi-IN" if language == "hi" else "en-US")
+        from ai.language_router import get_sarvam_language_code
+        lang_code = get_sarvam_language_code(language)
+        transcription_result = await transcribe_audio(audio_bytes, lang_code)
         transcript = transcription_result.get("text", "")
+
         
         if not transcript:
             raise ValueError("Audio transcription returned empty text")

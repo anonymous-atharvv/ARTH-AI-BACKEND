@@ -183,6 +183,57 @@ async def extract_transaction(state: AgentState) -> AgentState:
         
     try:
         if state["message_type"] == "IMAGE":
+            # Check if this is a statement import
+            raw_body = state.get("raw_body", "") or ""
+            if any(w in raw_body.lower() for w in ["statement", "import", "passbook", "report", "history"]):
+                import httpx
+                import json
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(state["media_url"])
+                    resp.raise_for_status()
+                    image_bytes = resp.content
+                
+                from ai.upi_statement_parser import parse_upi_statement_image
+                txs = await parse_upi_statement_image(image_bytes, state["user_language"])
+                if txs:
+                    from database import AsyncSessionLocal
+                    from models.transaction import Transaction
+                    from services.analytics import AnalyticsService
+                    from services.cache_manager import invalidate_user_caches
+                    
+                    async with AsyncSessionLocal() as db:
+                        count = 0
+                        for tx_data in txs:
+                            tx = Transaction(
+                                user_id=state["user_id"],
+                                amount=tx_data["amount"],
+                                type="income" if tx_data["type"] == "credit" else "expense",
+                                category_code=tx_data.get("category_code", "other_expense" if tx_data["type"] != "credit" else "other_income"),
+                                counterparty=tx_data.get("counterparty", "UPI Transaction"),
+                                description=tx_data.get("description") or f"Imported from {tx_data.get('payment_app', 'UPI statement')}",
+                                payment_method="upi",
+                                transaction_date=date.fromisoformat(tx_data["date"]) if tx_data.get("date") else date.today(),
+                                source="upi_statement",
+                                raw_input=json.dumps(tx_data),
+                                confidence_score=1.0,
+                                verified=True
+                            )
+                            db.add(tx)
+                            count += 1
+                        await db.commit()
+                        
+                        analytics = AnalyticsService(db)
+                        await analytics.refresh_cache(state["user_id"])
+                    
+                    await invalidate_user_caches(state["user_id"])
+                    
+                    if state["user_language"] == "hi":
+                        state["response_text"] = f"✅ Aapke statement se {count} transaction safaltapoorvak import kar liye gaye hain!"
+                    else:
+                        state["response_text"] = f"✅ Successfully imported {count} transactions from your statement!"
+                    state["response_sent"] = True
+                    return state
+
             extracted = await extract_from_receipt_image(
                 state["media_url"], state["user_language"])
             
@@ -195,10 +246,27 @@ async def extract_transaction(state: AgentState) -> AgentState:
                 state["raw_body"], state["user_language"])
             
         state["extracted_transaction"] = extracted.model_dump(mode="json") if hasattr(extracted, "model_dump") else extracted.dict()
+
+        
+        # Check if the extracted category code is generic, and if so, try semantic categorizer fallback
+        cat_code = state["extracted_transaction"].get("category_code")
+        if cat_code in ("other_expense", "other_income"):
+            from database import AsyncSessionLocal
+            from ai.categorizer import categorize_with_embeddings
+            async with AsyncSessionLocal() as db:
+                desc = state["extracted_transaction"].get("description") or state.get("raw_body") or ""
+                tx_type = state["extracted_transaction"].get("type")
+                tx_type_str = tx_type.value if hasattr(tx_type, "value") else str(tx_type)
+                semantic_cat = await categorize_with_embeddings(desc, tx_type_str, db)
+                if semantic_cat != cat_code:
+                    state["extracted_transaction"]["category_code"] = semantic_cat
+                    state["extracted_transaction"]["confidence"] = max(state["extracted_transaction"].get("confidence", 0.7), 0.8)
+
         logger.info("Transaction extracted",
-                   amount=extracted.amount,
-                   type=extracted.type,
-                   confidence=extracted.confidence)
+                   amount=state["extracted_transaction"].get("amount"),
+                   type=state["extracted_transaction"].get("type"),
+                   confidence=state["extracted_transaction"].get("confidence"))
+
                    
     except Exception as e:
         logger.error("Transaction extraction failed", error=str(e))
@@ -300,9 +368,22 @@ async def store_transaction(state: AgentState) -> AgentState:
         db.add(new_tx)
         await db.commit()
         
+        # Generate and save transaction embedding for future categorization
+        try:
+            from ai.categorizer import save_transaction_embedding
+            await save_transaction_embedding(
+                str(new_tx.id),
+                new_tx.description or new_tx.raw_input or "",
+                new_tx.category_code,
+                db
+            )
+        except Exception:
+            pass
+
         # Update analytics cache
         analytics = AnalyticsService(db)
         await analytics.refresh_cache(state["user_id"])
+
     
     # Build success response
     state["response_text"] = build_success_response(tx, state["user_language"])
@@ -440,6 +521,9 @@ def build_financial_agent():
     graph.add_edge("send_response", END)
     
     return graph.compile()
+
+
+compiled_agent = build_financial_agent()
 
 
 # ─── HELPER FUNCTIONS ─────────────────────────────────────────────────────────
